@@ -56,6 +56,8 @@ describe("booking schedule", () => {
     expect(getAvailableCheckInOptions("2026-07-15", eightThirtyAm)[0]).toBe("09:00");
     expect(getAvailableCheckInOptions("2026-07-15", eightThirtyAm)).not.toContain("08:00");
     expect(getAvailableCheckInOptions("2026-07-16", eightThirtyAm)).toEqual(CHECK_IN_OPTIONS);
+    expect(getAvailableCheckInOptions("2026-07-15", new Date("2026-07-15T12:00:00Z"))[0]).toBe("08:00");
+    expect(getAvailableCheckInOptions("2026-07-15", new Date("2026-07-15T12:00:01Z"))[0]).toBe("09:00");
   });
 
   it("disables past dates and today after the final check-in time", () => {

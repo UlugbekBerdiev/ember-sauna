@@ -57,8 +57,8 @@ export function getAvailableCheckInOptions(dateKey: string, now = new Date()) {
   if (dateKey > businessNow.dateKey) return [...CHECK_IN_OPTIONS];
 
   return CHECK_IN_OPTIONS.filter((time) => {
-    const minutes = Number(time.slice(0, 2)) * 60;
-    return minutes >= businessNow.minutes;
+    const seconds = Number(time.slice(0, 2)) * 60 * 60;
+    return seconds >= businessNow.seconds;
   });
 }
 
@@ -86,6 +86,7 @@ function getBusinessClock(now: Date) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
     hourCycle: "h23",
   }).formatToParts(now);
   const value = (type: Intl.DateTimeFormatPartTypes) =>
@@ -93,7 +94,10 @@ function getBusinessClock(now: Date) {
 
   return {
     dateKey: `${value("year")}-${value("month")}-${value("day")}`,
-    minutes: Number(value("hour")) * 60 + Number(value("minute")),
+    seconds:
+      Number(value("hour")) * 60 * 60 +
+      Number(value("minute")) * 60 +
+      Number(value("second")),
   };
 }
 
