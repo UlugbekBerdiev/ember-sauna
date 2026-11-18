@@ -16,8 +16,8 @@ function getSessionSecret() {
   return secret;
 }
 
-export async function startAdminSession(adminId: string) {
-  const token = await createSessionToken(adminId, getSessionSecret());
+export async function startAdminSession(adminId: string, sessionVersion: number) {
+  const token = await createSessionToken(adminId, sessionVersion, getSessionSecret());
   const cookieStore = await cookies();
   cookieStore.set(ADMIN_SESSION_COOKIE, token, {
     httpOnly: true,
@@ -30,6 +30,19 @@ export async function startAdminSession(adminId: string) {
 
 export async function endAdminSession() {
   const cookieStore = await cookies();
+  const token = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
+  if (token) {
+    const payload = await verifySessionToken(token, getSessionSecret());
+    if (payload) {
+      await prisma.adminUser.updateMany({
+        where: {
+          id: payload.adminId,
+          sessionVersion: payload.sessionVersion,
+        },
+        data: { sessionVersion: { increment: 1 } },
+      });
+    }
+  }
   cookieStore.delete(ADMIN_SESSION_COOKIE);
 }
 
@@ -38,8 +51,11 @@ export async function getCurrentAdmin() {
   if (!token) return null;
   const payload = await verifySessionToken(token, getSessionSecret());
   if (!payload) return null;
-  return prisma.adminUser.findUnique({
-    where: { id: payload.adminId },
+  return prisma.adminUser.findFirst({
+    where: {
+      id: payload.adminId,
+      sessionVersion: payload.sessionVersion,
+    },
     select: { id: true, username: true, email: true },
   });
 }
