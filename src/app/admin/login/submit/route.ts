@@ -30,10 +30,8 @@ export async function POST(request: Request) {
 }
 
 async function startSession(request: Request, adminId: string, sessionVersion: number) {
-  const secret = process.env.SESSION_SECRET ?? "";
-  if (secret.length < 32) {
-    return redirectTo(request, "/admin/login", { error: "session" });
-  }
+  const { getSessionSecret } = await import("@/lib/session-secret");
+  const secret = await getSessionSecret();
   const token = await createSessionToken(adminId, sessionVersion, secret);
   const response = redirectTo(request, "/admin");
   response.cookies.set(ADMIN_SESSION_COOKIE, token, {
