@@ -20,7 +20,7 @@ export function AdminAuthForm({ action, mode }: AuthFormProps) {
       {setup && (
         <div className="field">
           <label className="sr-only" htmlFor="setupToken">Setup code</label>
-          <input className="input" id="setupToken" name="setupToken" type="password" autoComplete="off" placeholder="Setup code" minLength={32} required />
+          <input className="input" id="setupToken" name="setupToken" type="password" autoComplete="off" placeholder="Setup code" required />
         </div>
       )}
       <div className="field">

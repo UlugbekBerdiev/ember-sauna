@@ -70,7 +70,7 @@ export async function verifySessionToken(
 }
 
 export async function verifySetupToken(provided: string, expected: string) {
-  if (expected.length < 32) return false;
+  if (expected.length === 0) return false;
   const [providedDigest, expectedDigest] = await Promise.all([
     digest(provided),
     digest(expected),

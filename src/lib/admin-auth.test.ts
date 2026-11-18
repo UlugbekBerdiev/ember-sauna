@@ -41,5 +41,6 @@ describe("admin authentication helpers", () => {
     await expect(verifySetupToken(setupToken, setupToken)).resolves.toBe(true);
     await expect(verifySetupToken("wrong", setupToken)).resolves.toBe(false);
     await expect(verifySetupToken(setupToken, "")).resolves.toBe(false);
+    await expect(verifySetupToken("short-code", "short-code")).resolves.toBe(true);
   });
 });
