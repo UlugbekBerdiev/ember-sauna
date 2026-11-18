@@ -14,14 +14,24 @@ export function ensureDatabase() {
   return pending;
 }
 
+function openClient(connectionString: string) {
+  const client = new pg.Client({
+    connectionString,
+    connectionTimeoutMillis: 8000,
+  });
+  client.on("error", () => undefined);
+  return client;
+}
+
 async function applyMigrations() {
-  const connectionString = process.env.DATABASE_URL?.trim();
+  const connectionString =
+    process.env.DATABASE_URL_UNPOOLED?.trim() || process.env.DATABASE_URL?.trim();
   if (!connectionString) throw new Error("DATABASE_URL is required.");
 
-  const client = new pg.Client({ connectionString });
+  const client = openClient(connectionString);
   await client.connect();
   try {
-    await client.query("select pg_advisory_lock(7272741)");
+    await client.query("select pg_advisory_lock(7272741)").catch(() => undefined);
     const adminTable = await client.query<{ name: string | null }>(
       `select to_regclass('public."AdminUser"') as name`,
     );
@@ -52,5 +62,11 @@ async function applyMigrationFile(client: pg.Client, directory: string) {
     path.join(process.cwd(), "prisma", "migrations", directory, "migration.sql"),
     "utf8",
   );
-  await client.query(sql);
+  const statements = sql
+    .split(/;\s*(?:\r?\n|$)/)
+    .map((statement) => statement.trim())
+    .filter((statement) => statement.replace(/--.*$/gm, "").trim().length > 0);
+  for (const statement of statements) {
+    await client.query(statement);
+  }
 }

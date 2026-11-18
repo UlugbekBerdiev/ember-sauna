@@ -2,8 +2,7 @@ import { redirect } from "next/navigation";
 import { AdminAuthForm } from "@/components/admin/auth-form";
 import { Logo } from "@/components/site-shell";
 import { setupAction } from "@/app/admin/auth-actions";
-import { ensureDatabase } from "@/lib/ensure-database";
-import { prisma } from "@/lib/db";
+import { countAdmins } from "@/lib/admin-account";
 
 export const metadata = { title: "First-run admin setup" };
 export const dynamic = "force-dynamic";
@@ -11,8 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminSetupPage() {
   let adminCount = 0;
   try {
-    await ensureDatabase();
-    adminCount = await prisma.adminUser.count();
+    adminCount = await countAdmins();
   } catch {
     return (
       <main className="admin-auth-page">

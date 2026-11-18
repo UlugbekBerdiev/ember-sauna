@@ -4,8 +4,7 @@ import { AdminAuthForm } from "@/components/admin/auth-form";
 import { Logo } from "@/components/site-shell";
 import { loginAction } from "@/app/admin/auth-actions";
 import { getCurrentAdmin } from "@/lib/admin-session";
-import { ensureDatabase } from "@/lib/ensure-database";
-import { prisma } from "@/lib/db";
+import { countAdmins } from "@/lib/admin-account";
 
 export const metadata = { title: "Admin access" };
 export const dynamic = "force-dynamic";
@@ -19,10 +18,9 @@ export default async function AdminLoginPage({
   let adminCount = 0;
   let params: { setup?: string };
   try {
-    await ensureDatabase();
     currentAdmin = await getCurrentAdmin();
     [adminCount, params] = await Promise.all([
-      prisma.adminUser.count(),
+      countAdmins(),
       searchParams,
     ]);
   } catch {

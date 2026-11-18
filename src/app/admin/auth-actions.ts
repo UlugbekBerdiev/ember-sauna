@@ -2,8 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { ensureDatabase } from "@/lib/ensure-database";
-import { prisma } from "@/lib/db";
+import { countAdmins, createAdmin, findAdminByUsername } from "@/lib/admin-account";
 import {
   MIN_PASSWORD_LENGTH,
   hashAdminPassword,
@@ -33,14 +32,13 @@ export async function loginAction(
   const password = String(formData.get("password") ?? "");
   const genericError = { error: "Invalid username or password." };
   if (!username || !password) return genericError;
-  await ensureDatabase();
 
   const clientKey = await getClientKey();
   if (!consumeAttempt(loginAttempts, clientKey, LOGIN_ATTEMPT_LIMIT, LOGIN_WINDOW_MS)) {
     return { error: "Too many sign-in attempts. Try again later." };
   }
 
-  const admin = await prisma.adminUser.findUnique({ where: { username } });
+  const admin = await findAdminByUsername(username);
   if (!admin) return genericError;
 
   const valid = await verifyAdminPassword(password, admin.passwordHash);
@@ -55,7 +53,6 @@ export async function setupAction(
   _previousState: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  await ensureDatabase();
   const clientKey = await getClientKey();
   if (!consumeAttempt(setupAttempts, clientKey, SETUP_ATTEMPT_LIMIT, SETUP_WINDOW_MS)) {
     return { error: "Too many setup attempts. Try again later." };
@@ -66,7 +63,7 @@ export async function setupAction(
     return { error: "Invalid setup code." };
   }
 
-  if ((await prisma.adminUser.count()) > 0) {
+  if ((await countAdmins()) > 0) {
     return { error: "Admin setup is no longer available." };
   }
 
@@ -86,9 +83,7 @@ export async function setupAction(
 
   try {
     const passwordHash = await hashAdminPassword(password);
-    await prisma.adminUser.create({
-      data: { username, passwordHash },
-    });
+    await createAdmin(username, passwordHash);
   } catch {
     return { error: "Unable to create the admin account. Review the fields and try again." };
   }
