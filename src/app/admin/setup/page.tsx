@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { AdminAuthForm } from "@/components/admin/auth-form";
 import { Logo } from "@/components/site-shell";
 import { setupAction } from "@/app/admin/auth-actions";
@@ -8,8 +8,7 @@ export const metadata = { title: "First-run admin setup" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminSetupPage() {
-  if ((process.env.ADMIN_SETUP_CODE?.length ?? 0) < 32) notFound();
-  if ((await prisma.adminUser.count()) > 0) notFound();
+  if ((await prisma.adminUser.count()) > 0) redirect("/admin/login");
 
   return (
     <main className="admin-auth-page">
