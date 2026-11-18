@@ -8,7 +8,7 @@ export const metadata = { title: "First-run admin setup" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminSetupPage() {
-  if ((process.env.ADMIN_SETUP_TOKEN?.length ?? 0) < 32) notFound();
+  if ((process.env.ADMIN_SETUP_CODE?.length ?? 0) < 32) notFound();
   if ((await prisma.adminUser.count()) > 0) notFound();
 
   return (

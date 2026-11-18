@@ -59,7 +59,7 @@ export async function setupAction(
   }
 
   const setupToken = String(formData.get("setupToken") ?? "");
-  if (!await verifySetupToken(setupToken, process.env.ADMIN_SETUP_TOKEN ?? "")) {
+  if (!await verifySetupToken(setupToken, process.env.ADMIN_SETUP_CODE ?? "")) {
     return { error: "Invalid setup code." };
   }
 

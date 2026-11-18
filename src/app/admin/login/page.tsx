@@ -26,7 +26,7 @@ export default async function AdminLoginPage({
         <h1 id="admin-login-heading">Admin Access</h1>
         {params.setup === "complete" && <p className="admin-auth-success" role="status">Admin account created. Sign in to continue.</p>}
         <AdminAuthForm action={loginAction} mode="login" />
-        {adminCount === 0 && (process.env.ADMIN_SETUP_TOKEN?.length ?? 0) >= 32 && (
+        {adminCount === 0 && (process.env.ADMIN_SETUP_CODE?.length ?? 0) >= 32 && (
           <Link className="admin-setup-link" href="/admin/setup">First time here? Create the owner account</Link>
         )}
         <p className="placeholder-note">Private staff access only</p>
