@@ -24,7 +24,28 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const SETUP_ATTEMPT_LIMIT = 5;
 const SETUP_WINDOW_MS = 15 * 60 * 1000;
 
+const DATABASE_ERROR = "The admin database is unavailable. Reload and try again.";
+
+function isNextRedirect(error: unknown) {
+  return typeof error === "object"
+    && error !== null
+    && "digest" in error
+    && String((error as { digest: unknown }).digest).startsWith("NEXT_REDIRECT");
+}
+
 export async function loginAction(
+  previousState: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  try {
+    return await runLogin(previousState, formData);
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    return { error: DATABASE_ERROR };
+  }
+}
+
+async function runLogin(
   _previousState: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
@@ -50,6 +71,18 @@ export async function loginAction(
 }
 
 export async function setupAction(
+  previousState: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  try {
+    return await runSetup(previousState, formData);
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    return { error: DATABASE_ERROR };
+  }
+}
+
+async function runSetup(
   _previousState: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
@@ -85,7 +118,7 @@ export async function setupAction(
     const passwordHash = await hashAdminPassword(password);
     await createAdmin(username, passwordHash);
   } catch {
-    return { error: "Unable to create the admin account. Review the fields and try again." };
+    return { error: DATABASE_ERROR };
   }
 
   redirect("/admin/login?setup=complete");

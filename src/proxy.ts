@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_SESSION_COOKIE, verifySessionToken } from "@/lib/session-token";
 
+const OPEN_ADMIN_PATHS = new Set([
+  "/admin/login",
+  "/admin/setup",
+  "/admin/login/submit",
+  "/admin/setup/submit",
+]);
+
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  if (pathname === "/admin/login" || pathname === "/admin/setup") {
+  if (OPEN_ADMIN_PATHS.has(pathname)) {
     return NextResponse.next();
   }
 
