@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BookingShell } from "@/components/booking-shell";
+import { BookingScheduleSummary } from "@/components/booking-schedule-summary";
 import { useBooking } from "@/lib/booking-store";
 import { calculateRentalPrice, formatCurrency, fromDateKey } from "@/lib/pricing";
 
@@ -27,6 +28,8 @@ export default function PaymentPage() {
         <aside className="summary-card">
           <div className="summary-content">
             <p className="eyebrow">Order summary</p>
+            <BookingScheduleSummary checkInAt={booking.checkInAt} checkOutAt={booking.checkOutAt} />
+            {(booking.checkInAt || booking.checkOutAt) && <hr className="gold-rule" />}
             {pricing.lineItems.map(({ date, amount }) => <div className="summary-line" key={date.toISOString()}><p>{date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</p><p>{formatCurrency(amount)}</p></div>)}
             {!pricing.lineItems.length && <p>No dates selected. <Link className="link-arrow" href="/book">Choose dates</Link>.</p>}
             <hr className="gold-rule" />

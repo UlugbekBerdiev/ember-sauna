@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { BookingShell } from "@/components/booking-shell";
+import { BookingScheduleSummary } from "@/components/booking-schedule-summary";
 import { useBooking } from "@/lib/booking-store";
 
 export default function DetailsPage() {
@@ -27,6 +28,8 @@ export default function DetailsPage() {
         <p className="eyebrow">Delivery and contact</p>
         <h1 id="details-heading">Where should we bring the heat?</h1>
         <p>Enter your contact and delivery details. Eligibility and site-access review will be server-validated in a later phase.</p>
+        <BookingScheduleSummary checkInAt={booking.checkInAt} checkOutAt={booking.checkOutAt} />
+        <hr className="gold-rule" />
         <form className="form-grid" onSubmit={submit}>
           {field("firstName", "First name", { autoComplete: "given-name" })}
           {field("lastName", "Last name", { autoComplete: "family-name" })}
