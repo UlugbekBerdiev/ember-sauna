@@ -2,8 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { ensureDatabase } from "@/lib/ensure-database";
-import { prisma } from "@/lib/db";
+import { findAdminForSession, revokeAdminSession } from "@/lib/admin-account";
 import {
   ADMIN_SESSION_COOKIE,
   SESSION_DURATION_SECONDS,
@@ -30,19 +29,12 @@ export async function startAdminSession(adminId: string, sessionVersion: number)
 }
 
 export async function endAdminSession() {
-  await ensureDatabase();
   const cookieStore = await cookies();
   const token = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
   if (token) {
     const payload = await verifySessionToken(token, getSessionSecret());
     if (payload) {
-      await prisma.adminUser.updateMany({
-        where: {
-          id: payload.adminId,
-          sessionVersion: payload.sessionVersion,
-        },
-        data: { sessionVersion: { increment: 1 } },
-      });
+      await revokeAdminSession(payload.adminId, payload.sessionVersion);
     }
   }
   cookieStore.delete(ADMIN_SESSION_COOKIE);
@@ -53,18 +45,10 @@ export async function getCurrentAdmin() {
   if (!token) return null;
   const payload = await verifySessionToken(token, getSessionSecret());
   if (!payload) return null;
-  await ensureDatabase();
-  return prisma.adminUser.findFirst({
-    where: {
-      id: payload.adminId,
-      sessionVersion: payload.sessionVersion,
-    },
-    select: { id: true, username: true, email: true },
-  });
+  return findAdminForSession(payload.adminId, payload.sessionVersion);
 }
 
 export async function requireAdmin() {
-  await ensureDatabase();
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
   return admin;
