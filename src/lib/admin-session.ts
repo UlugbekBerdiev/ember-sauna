@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { ensureDatabase } from "@/lib/ensure-database";
 import { prisma } from "@/lib/db";
 import {
   ADMIN_SESSION_COOKIE,
@@ -29,6 +30,7 @@ export async function startAdminSession(adminId: string, sessionVersion: number)
 }
 
 export async function endAdminSession() {
+  await ensureDatabase();
   const cookieStore = await cookies();
   const token = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
   if (token) {
@@ -51,6 +53,7 @@ export async function getCurrentAdmin() {
   if (!token) return null;
   const payload = await verifySessionToken(token, getSessionSecret());
   if (!payload) return null;
+  await ensureDatabase();
   return prisma.adminUser.findFirst({
     where: {
       id: payload.adminId,
@@ -61,6 +64,7 @@ export async function getCurrentAdmin() {
 }
 
 export async function requireAdmin() {
+  await ensureDatabase();
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
   return admin;

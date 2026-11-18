@@ -1,12 +1,16 @@
 import { spawn } from "node:child_process";
 
-if (!process.env.DATABASE_URL?.trim()) {
+const connectionString =
+  process.env.DATABASE_URL_UNPOOLED?.trim() || process.env.DATABASE_URL?.trim() || "";
+
+if (!connectionString) {
   console.log("migrate: DATABASE_URL is not set; skipping");
   process.exit(0);
 }
 
 const command = process.platform === "win32" ? "npx.cmd" : "npx";
 const migration = spawn(command, ["--no-install", "prisma", "migrate", "deploy"], {
+  env: { ...process.env, DATABASE_URL: connectionString },
   stdio: "inherit",
 });
 
