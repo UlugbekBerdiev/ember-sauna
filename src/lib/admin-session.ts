@@ -9,15 +9,10 @@ import {
   createSessionToken,
   verifySessionToken,
 } from "@/lib/admin-auth";
-
-function getSessionSecret() {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) throw new Error("SESSION_SECRET is required.");
-  return secret;
-}
+import { getSessionSecret } from "@/lib/session-secret";
 
 export async function startAdminSession(adminId: string, sessionVersion: number) {
-  const token = await createSessionToken(adminId, sessionVersion, getSessionSecret());
+  const token = await createSessionToken(adminId, sessionVersion, await getSessionSecret());
   const cookieStore = await cookies();
   cookieStore.set(ADMIN_SESSION_COOKIE, token, {
     httpOnly: true,
@@ -32,7 +27,7 @@ export async function endAdminSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
   if (token) {
-    const payload = await verifySessionToken(token, getSessionSecret());
+    const payload = await verifySessionToken(token, await getSessionSecret());
     if (payload) {
       await revokeAdminSession(payload.adminId, payload.sessionVersion);
     }
@@ -43,7 +38,7 @@ export async function endAdminSession() {
 export async function getCurrentAdmin() {
   const token = (await cookies()).get(ADMIN_SESSION_COOKIE)?.value;
   if (!token) return null;
-  const payload = await verifySessionToken(token, getSessionSecret());
+  const payload = await verifySessionToken(token, await getSessionSecret());
   if (!payload) return null;
   return findAdminForSession(payload.adminId, payload.sessionVersion);
 }
