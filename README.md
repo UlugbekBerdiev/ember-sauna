@@ -17,7 +17,7 @@ The admin area uses PostgreSQL and Prisma. Copy `.env.example` to `.env` and pro
 
 - `DATABASE_URL` for the local PostgreSQL database
 - `SESSION_SECRET`, a unique random value of at least 32 characters
-- `ADMIN_SETUP_TOKEN`, a separate setup code of at least 32 characters
+- `ADMIN_SETUP_CODE`, a separate setup code of at least 32 characters
 - optionally `ADMIN_USERNAME` and `ADMIN_PASSWORD` for seed-time admin creation
 - optionally `ADMIN_EMAIL`
 
@@ -31,7 +31,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-When `ADMIN_USERNAME` and `ADMIN_PASSWORD` are omitted, visit `http://localhost:3000/admin/setup` once and enter `ADMIN_SETUP_TOKEN` to choose the owner credentials. The setup route returns 404 when the setup token is not configured or after an admin exists. Sign in at `/admin/login` with the configured username and password.
+When `ADMIN_USERNAME` and `ADMIN_PASSWORD` are omitted, visit `http://localhost:3000/admin/setup` once and enter `ADMIN_SETUP_CODE` to choose the owner credentials. The setup route returns 404 when the setup token is not configured or after an admin exists. Sign in at `/admin/login` with the configured username and password.
 
 ## Quality checks
 
