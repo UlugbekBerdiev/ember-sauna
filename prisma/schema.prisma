@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BookingStatus {
+  CONFIRMED
+  AWAITING_DELIVERY
+  ACTIVE_ON_SITE
+  COMPLETED
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
+}
+
+model AdminUser {
+  id                  String    @id @default(cuid())
+  username            String    @unique
+  email               String?   @unique
+  passwordHash        String
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  auditLogs           AuditLog[]
+}
+
+model Booking {
+  id                  String        @id @default(cuid())
+  reference           String        @unique
+  customerName        String
+  phone               String
+  email               String
+  deliveryAddress     String
+  city                String
+  state               String        @default("MD")
+  postalCode          String
+  deliveryNotes       String?
+  selectedDates       DateTime[]
+  checkInAt           DateTime
+  checkOutAt          DateTime
+  durationDays        Int
+  perDayPriceSnapshot Json
+  subtotalCents       Int
+  discountCents       Int
+  totalCents          Int
+  paymentStatus       PaymentStatus @default(PENDING)
+  stripeReference     String?
+  status              BookingStatus @default(CONFIRMED)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  auditLogs           AuditLog[]
+
+  @@index([checkInAt])
+  @@index([status])
+}
+
+model AuditLog {
+  id           String         @id @default(cuid())
+  bookingId    String
+  adminUserId  String
+  previousStatus BookingStatus
+  newStatus    BookingStatus
+  createdAt    DateTime       @default(now())
+  booking      Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  adminUser    AdminUser      @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId, createdAt])
+}
