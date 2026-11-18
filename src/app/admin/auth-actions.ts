@@ -5,10 +5,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import {
   MIN_PASSWORD_LENGTH,
-  getLockoutUntil,
   hashAdminPassword,
-  isLoginLocked,
   verifyAdminPassword,
+  verifySetupToken,
 } from "@/lib/admin-auth";
 import { endAdminSession, startAdminSession } from "@/lib/admin-session";
 
@@ -16,7 +15,12 @@ export type AuthActionState = {
   error?: string;
 };
 
-const setupAttempts = new Map<string, { count: number; resetAt: number }>();
+type AttemptWindow = { count: number; resetAt: number };
+
+const loginAttempts = new Map<string, AttemptWindow>();
+const setupAttempts = new Map<string, AttemptWindow>();
+const LOGIN_ATTEMPT_LIMIT = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const SETUP_ATTEMPT_LIMIT = 5;
 const SETUP_WINDOW_MS = 15 * 60 * 1000;
 
@@ -29,27 +33,19 @@ export async function loginAction(
   const genericError = { error: "Invalid username or password." };
   if (!username || !password) return genericError;
 
-  const admin = await prisma.adminUser.findUnique({ where: { username } });
-  if (!admin || isLoginLocked(admin.lockedUntil)) return genericError;
-
-  const valid = await verifyAdminPassword(password, admin.passwordHash);
-  if (!valid) {
-    const attempts = admin.failedLoginAttempts + 1;
-    await prisma.adminUser.update({
-      where: { id: admin.id },
-      data: {
-        failedLoginAttempts: attempts,
-        lockedUntil: getLockoutUntil(attempts),
-      },
-    });
-    return genericError;
+  const clientKey = await getClientKey();
+  if (!consumeAttempt(loginAttempts, clientKey, LOGIN_ATTEMPT_LIMIT, LOGIN_WINDOW_MS)) {
+    return { error: "Too many sign-in attempts. Try again later." };
   }
 
-  await prisma.adminUser.update({
-    where: { id: admin.id },
-    data: { failedLoginAttempts: 0, lockedUntil: null },
-  });
-  await startAdminSession(admin.id);
+  const admin = await prisma.adminUser.findUnique({ where: { username } });
+  if (!admin) return genericError;
+
+  const valid = await verifyAdminPassword(password, admin.passwordHash);
+  if (!valid) return genericError;
+
+  loginAttempts.delete(clientKey);
+  await startAdminSession(admin.id, admin.sessionVersion);
   redirect("/admin");
 }
 
@@ -57,17 +53,18 @@ export async function setupAction(
   _previousState: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  if ((await prisma.adminUser.count()) > 0) {
-    return { error: "Admin setup is no longer available." };
+  const clientKey = await getClientKey();
+  if (!consumeAttempt(setupAttempts, clientKey, SETUP_ATTEMPT_LIMIT, SETUP_WINDOW_MS)) {
+    return { error: "Too many setup attempts. Try again later." };
   }
 
-  const requestHeaders = await headers();
-  const clientKey =
-    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    requestHeaders.get("x-real-ip") ??
-    "local";
-  if (!consumeSetupAttempt(clientKey)) {
-    return { error: "Too many setup attempts. Try again later." };
+  const setupToken = String(formData.get("setupToken") ?? "");
+  if (!await verifySetupToken(setupToken, process.env.ADMIN_SETUP_TOKEN ?? "")) {
+    return { error: "Invalid setup code." };
+  }
+
+  if ((await prisma.adminUser.count()) > 0) {
+    return { error: "Admin setup is no longer available." };
   }
 
   const username = normalizeUsername(formData.get("username"));
@@ -105,13 +102,28 @@ function normalizeUsername(value: FormDataEntryValue | null) {
   return String(value ?? "").trim().toLowerCase();
 }
 
-function consumeSetupAttempt(key: string, now = Date.now()) {
-  const current = setupAttempts.get(key);
+async function getClientKey() {
+  const requestHeaders = await headers();
+  return (
+    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    requestHeaders.get("x-real-ip") ??
+    "local"
+  );
+}
+
+function consumeAttempt(
+  attempts: Map<string, AttemptWindow>,
+  key: string,
+  limit: number,
+  windowMs: number,
+  now = Date.now(),
+) {
+  const current = attempts.get(key);
   if (!current || current.resetAt <= now) {
-    setupAttempts.set(key, { count: 1, resetAt: now + SETUP_WINDOW_MS });
+    attempts.set(key, { count: 1, resetAt: now + windowMs });
     return true;
   }
-  if (current.count >= SETUP_ATTEMPT_LIMIT) return false;
+  if (current.count >= limit) return false;
   current.count += 1;
   return true;
 }

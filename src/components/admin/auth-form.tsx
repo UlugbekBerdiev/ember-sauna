@@ -17,6 +17,12 @@ export function AdminAuthForm({ action, mode }: AuthFormProps) {
 
   return (
     <form className="admin-auth-form" action={formAction}>
+      {setup && (
+        <div className="field">
+          <label className="sr-only" htmlFor="setupToken">Setup code</label>
+          <input className="input" id="setupToken" name="setupToken" type="password" autoComplete="off" placeholder="Setup code" minLength={32} required />
+        </div>
+      )}
       <div className="field">
         <label className="sr-only" htmlFor="username">Username</label>
         <input className="input" id="username" name="username" autoComplete="username" placeholder="Username" minLength={3} maxLength={32} required />

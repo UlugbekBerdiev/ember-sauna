@@ -2,12 +2,11 @@ import { compare, hash } from "bcryptjs";
 
 export const ADMIN_SESSION_COOKIE = "ember_admin_session";
 export const SESSION_DURATION_SECONDS = 60 * 60 * 8;
-export const MAX_LOGIN_ATTEMPTS = 5;
-export const LOCKOUT_MINUTES = 15;
 export const MIN_PASSWORD_LENGTH = 12;
 
 type SessionPayload = {
   adminId: string;
+  sessionVersion: number;
   expiresAt: number;
 };
 
@@ -28,12 +27,14 @@ export function assertValidPassword(password: string) {
 
 export async function createSessionToken(
   adminId: string,
+  sessionVersion: number,
   secret: string,
   now = new Date(),
 ) {
   assertValidSessionSecret(secret);
   const payload: SessionPayload = {
     adminId,
+    sessionVersion,
     expiresAt: Math.floor(now.getTime() / 1000) + SESSION_DURATION_SECONDS,
   };
   const encoded = encodeBase64Url(JSON.stringify(payload));
@@ -55,6 +56,8 @@ export async function verifySessionToken(
     const payload = JSON.parse(decodeBase64Url(encoded)) as SessionPayload;
     if (
       typeof payload.adminId !== "string" ||
+      !Number.isInteger(payload.sessionVersion) ||
+      payload.sessionVersion < 0 ||
       typeof payload.expiresAt !== "number" ||
       payload.expiresAt <= Math.floor(now.getTime() / 1000)
     ) {
@@ -66,16 +69,13 @@ export async function verifySessionToken(
   }
 }
 
-export function getLockoutUntil(
-  failedLoginAttempts: number,
-  now = new Date(),
-) {
-  if (failedLoginAttempts < MAX_LOGIN_ATTEMPTS) return null;
-  return new Date(now.getTime() + LOCKOUT_MINUTES * 60 * 1000);
-}
-
-export function isLoginLocked(lockedUntil: Date | null, now = new Date()) {
-  return Boolean(lockedUntil && lockedUntil > now);
+export async function verifySetupToken(provided: string, expected: string) {
+  if (expected.length < 32) return false;
+  const [providedDigest, expectedDigest] = await Promise.all([
+    digest(provided),
+    digest(expected),
+  ]);
+  return constantTimeEqual(providedDigest, expectedDigest);
 }
 
 function assertValidSessionSecret(secret: string) {
@@ -98,6 +98,14 @@ async function sign(value: string, secret: string) {
     new TextEncoder().encode(value),
   );
   return bytesToBase64Url(new Uint8Array(signature));
+}
+
+async function digest(value: string) {
+  const bytes = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
+  return bytesToBase64Url(new Uint8Array(bytes));
 }
 
 function constantTimeEqual(left: string, right: string) {

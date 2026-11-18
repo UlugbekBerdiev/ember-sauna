@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  MAX_LOGIN_ATTEMPTS,
   createSessionToken,
-  getLockoutUntil,
   hashAdminPassword,
-  isLoginLocked,
   verifyAdminPassword,
   verifySessionToken,
+  verifySetupToken,
 } from "./admin-auth";
 
 const testSecret = "s".repeat(48);
@@ -22,9 +20,10 @@ describe("admin authentication helpers", () => {
 
   it("signs, verifies, and expires session tokens", async () => {
     const issuedAt = new Date("2026-11-18T12:00:00Z");
-    const token = await createSessionToken("admin_test", testSecret, issuedAt);
+    const token = await createSessionToken("admin_test", 3, testSecret, issuedAt);
     await expect(verifySessionToken(token, testSecret, issuedAt)).resolves.toMatchObject({
       adminId: "admin_test",
+      sessionVersion: 3,
     });
     await expect(
       verifySessionToken(token, testSecret, new Date("2026-11-19T12:00:01Z")),
@@ -32,17 +31,15 @@ describe("admin authentication helpers", () => {
   });
 
   it("rejects tampered tokens and incorrect secrets", async () => {
-    const token = await createSessionToken("admin_test", testSecret);
+    const token = await createSessionToken("admin_test", 0, testSecret);
     await expect(verifySessionToken(`${token}x`, testSecret)).resolves.toBeNull();
     await expect(verifySessionToken(token, "q".repeat(48))).resolves.toBeNull();
   });
 
-  it("locks an account after the configured failed-attempt threshold", () => {
-    const now = new Date("2026-11-18T12:00:00Z");
-    expect(getLockoutUntil(MAX_LOGIN_ATTEMPTS - 1, now)).toBeNull();
-    const lockedUntil = getLockoutUntil(MAX_LOGIN_ATTEMPTS, now);
-    expect(lockedUntil).not.toBeNull();
-    expect(isLoginLocked(lockedUntil, now)).toBe(true);
-    expect(isLoginLocked(lockedUntil, new Date("2026-11-18T12:16:00Z"))).toBe(false);
+  it("checks the first-run setup token without exposing it", async () => {
+    const setupToken = "t".repeat(48);
+    await expect(verifySetupToken(setupToken, setupToken)).resolves.toBe(true);
+    await expect(verifySetupToken("wrong", setupToken)).resolves.toBe(false);
+    await expect(verifySetupToken(setupToken, "")).resolves.toBe(false);
   });
 });
