@@ -53,7 +53,7 @@ async function applyMigrations() {
     }
   } finally {
     await client.query("select pg_advisory_unlock(7272741)").catch(() => undefined);
-    await client.end();
+    await client.end().catch(() => undefined);
   }
 }
 

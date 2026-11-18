@@ -1,22 +1,42 @@
 "use client";
 
-import { useActionState } from "react";
-import type { AuthActionState } from "@/app/admin/auth-actions";
+import { useState } from "react";
 
 type AuthFormProps = {
-  action: (
-    state: AuthActionState,
-    formData: FormData,
-  ) => Promise<AuthActionState>;
+  endpoint: string;
   mode: "login" | "setup";
+  errorCode?: string;
+  notice?: string;
 };
 
-export function AdminAuthForm({ action, mode }: AuthFormProps) {
-  const [state, formAction, pending] = useActionState(action, {});
+const LOGIN_ERRORS: Record<string, string> = {
+  invalid: "Invalid username or password.",
+  rate: "Too many sign-in attempts. Try again later.",
+  database: "The admin database is unavailable. Reload and try again.",
+  retry: "Reload this page and try again.",
+};
+
+const SETUP_ERRORS: Record<string, string> = {
+  code: "Invalid setup code.",
+  closed: "Admin setup is no longer available.",
+  username: "Choose a username with 3–32 letters, numbers, underscores, or dashes.",
+  mismatch: "Passwords do not match.",
+  password: "Password must be at least 12 characters.",
+  rate: "Too many setup attempts. Try again later.",
+  failed: "Unable to create the admin account. Review the fields and try again.",
+  database: "The admin database is unavailable. Reload and try again.",
+  retry: "Reload this page and try again.",
+};
+
+export function AdminAuthForm({ endpoint, mode, errorCode, notice }: AuthFormProps) {
   const setup = mode === "setup";
+  const messages = setup ? SETUP_ERRORS : LOGIN_ERRORS;
+  const error = errorCode ? messages[errorCode] ?? messages.database : null;
+  const [pending, setPending] = useState(false);
 
   return (
-    <form className="admin-auth-form" action={formAction}>
+    <form className="admin-auth-form" action={endpoint} method="post" onSubmit={() => setPending(true)}>
+      {notice && <p className="admin-auth-success" role="status">{notice}</p>}
       {setup && (
         <div className="field">
           <label className="sr-only" htmlFor="setupToken">Setup code</label>
@@ -37,7 +57,7 @@ export function AdminAuthForm({ action, mode }: AuthFormProps) {
           <input className="input" id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" placeholder="Confirm password" minLength={12} required />
         </div>
       )}
-      {state.error && <p className="admin-auth-error" role="alert">{state.error}</p>}
+      {error && <p className="admin-auth-error" role="alert">{error}</p>}
       <button className="button" type="submit" disabled={pending}>
         {pending ? "Please wait…" : setup ? "Create admin" : "Sign in"}
       </button>
