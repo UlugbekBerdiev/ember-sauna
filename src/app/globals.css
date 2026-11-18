@@ -125,6 +125,11 @@ textarea.input { min-height: 120px; resize: vertical; }
 .summary-content { padding: 22px; }
 .summary-line { display: flex; justify-content: space-between; gap: 18px; }
 .summary-line p { margin: 4px 0; }
+.booking-time-field { margin-bottom: 20px; }
+.schedule-summary { display: grid; gap: 12px; margin: 0; }
+.schedule-summary div { display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: baseline; }
+.schedule-summary dt { color: var(--gold-light); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.schedule-summary dd { margin: 0; color: var(--cream); font-weight: 700; }
 .summary-total { color: var(--gold-light); font: 400 29px Georgia, serif; letter-spacing: .08em; }
 .summary-card .button { width: 100%; margin-top: 12px; }
 .booking-panel { max-width: 760px; margin: 10px auto; padding: 34px; border: 1px solid #2e2d29; background: #10110f; }
@@ -163,6 +168,8 @@ textarea.input { min-height: 120px; resize: vertical; }
   .booking-main { padding-top: 20px; }
   .booking-layout { gap: 18px; }
   .summary-card { position: static; }
+  .summary-content { padding: 18px; }
+  .schedule-summary div { grid-template-columns: 1fr; gap: 1px; }
   .calendar-head h1 { font-size: 24px; }
   .day-cell { aspect-ratio: .93; }
   .day-price { font-size: 10px; }

@@ -3,8 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PhotoPlaceholder } from "@/components/site-shell";
+import { BookingScheduleSummary } from "@/components/booking-schedule-summary";
 import { calculateRentalPrice, formatCurrency, fromDateKey, getDailyRate, toDateKey } from "@/lib/pricing";
 import { useBooking } from "@/lib/booking-store";
+import {
+  calculateBookingSchedule,
+  getAvailableCheckInOptions,
+  isBookingDateSelectable,
+} from "@/lib/booking-time";
 
 const weekdays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
@@ -30,32 +36,79 @@ export function BookingCalendar() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { booking, updateBooking } = useBooking();
+  const now = useMemo(() => new Date(), []);
   const initial = searchParams.get("date");
-  const initialDate = initial && /^\d{4}-\d{2}-\d{2}$/.test(initial) ? fromDateKey(initial) : new Date();
+  const hasValidInitial = Boolean(
+    initial &&
+    /^\d{4}-\d{2}-\d{2}$/.test(initial) &&
+    isBookingDateSelectable(initial, now),
+  );
+  const initialDate = hasValidInitial ? fromDateKey(initial!) : now;
   const [view, setView] = useState(() => new Date(initialDate.getFullYear(), initialDate.getMonth(), 1));
-  const [selected, setSelected] = useState<Date[]>(() => initial ? [initialDate] : []);
+  const [selected, setSelected] = useState<Date[]>(() => hasValidInitial ? [initialDate] : []);
 
   useEffect(() => {
     if (!booking.dates.length || selected.length) return;
-    const timer = window.setTimeout(() => setSelected(booking.dates.map(fromDateKey)), 0);
+    const validDates = booking.dates.filter((dateKey) => isBookingDateSelectable(dateKey, now));
+    if (!validDates.length) return;
+    const timer = window.setTimeout(() => setSelected(validDates.map(fromDateKey)), 0);
     return () => window.clearTimeout(timer);
-  }, [booking.dates, selected.length]);
+  }, [booking.dates, now, selected.length]);
 
   const cells = useMemo(() => buildMonth(view.getFullYear(), view.getMonth()), [view]);
   const pricing = calculateRentalPrice(selected);
   const selectedKeys = new Set(selected.map(toDateKey));
+  const selectedDateKeys = selected.map(toDateKey);
+  const availableCheckInOptions = selectedDateKeys.length
+    ? getAvailableCheckInOptions([...selectedDateKeys].sort()[0], now)
+    : [];
+  const checkInTime = availableCheckInOptions.includes(booking.checkInTime)
+    ? booking.checkInTime
+    : availableCheckInOptions[0] ?? booking.checkInTime;
+  const schedule = calculateBookingSchedule(selectedDateKeys, checkInTime, now);
 
   function selectDate(date: Date) {
     let next: Date[];
     if (selected.length === 0 || selected.length > 1) next = [date];
     else if (toDateKey(selected[0]) === toDateKey(date)) next = [];
     else next = datesBetween(selected[0], date);
+    const nextDateKeys = next.map(toDateKey);
+    const nextOptions = nextDateKeys.length
+      ? getAvailableCheckInOptions([...nextDateKeys].sort()[0], now)
+      : [];
+    const nextCheckInTime = nextOptions.includes(checkInTime) ? checkInTime : nextOptions[0] ?? "08:00";
+    const nextSchedule = calculateBookingSchedule(nextDateKeys, nextCheckInTime, now);
     setSelected(next);
-    updateBooking({ dates: next.map(toDateKey) });
+    updateBooking({
+      dates: nextDateKeys,
+      checkInTime: nextCheckInTime,
+      checkInAt: nextSchedule?.checkInAt ?? "",
+      checkOutAt: nextSchedule?.checkOutAt ?? "",
+    });
   }
 
   function changeMonth(offset: number) {
     setView((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  }
+
+  function changeCheckInTime(value: string) {
+    const nextSchedule = calculateBookingSchedule(selectedDateKeys, value, now);
+    updateBooking({
+      checkInTime: value,
+      checkInAt: nextSchedule?.checkInAt ?? "",
+      checkOutAt: nextSchedule?.checkOutAt ?? "",
+    });
+  }
+
+  function continueBooking() {
+    if (!schedule) return;
+    updateBooking({
+      dates: selectedDateKeys,
+      checkInTime,
+      checkInAt: schedule.checkInAt,
+      checkOutAt: schedule.checkOutAt,
+    });
+    router.push("/book/details");
   }
 
   return (
@@ -69,26 +122,50 @@ export function BookingCalendar() {
         <p className="placeholder-note">Select a start and end date. Availability is illustrative until the server booking system is connected.</p>
         <div className="calendar-grid" role="grid" aria-label={`${view.toLocaleDateString("en-US", { month: "long", year: "numeric" })} rental calendar`}>
           {weekdays.map((day) => <div className="weekday" role="columnheader" key={day}>{day}</div>)}
-          {cells.map((date, index) => date ? (
-            <button
-              className={`day-cell ${selectedKeys.has(toDateKey(date)) ? "selected" : ""}`}
-              type="button"
-              role="gridcell"
-              aria-selected={selectedKeys.has(toDateKey(date))}
-              aria-label={`${date.toLocaleDateString("en-US", { month: "long", day: "numeric" })}, ${formatCurrency(getDailyRate(date))}`}
-              onClick={() => selectDate(date)}
-              key={toDateKey(date)}
-            >
-              <span className="day-number">{date.getDate()}</span>
-              <span className="day-price">{formatCurrency(getDailyRate(date))}</span>
-            </button>
-          ) : <div className="day-cell" role="gridcell" aria-disabled="true" key={`blank-${index}`} />)}
+          {cells.map((date, index) => {
+            if (!date) return <div className="day-cell" role="gridcell" aria-disabled="true" key={`blank-${index}`} />;
+            const dateKey = toDateKey(date);
+            const selectable = isBookingDateSelectable(dateKey, now);
+            return (
+              <button
+                className={`day-cell ${selectedKeys.has(dateKey) ? "selected" : ""}`}
+                type="button"
+                role="gridcell"
+                aria-selected={selectedKeys.has(dateKey)}
+                aria-label={`${date.toLocaleDateString("en-US", { month: "long", day: "numeric" })}, ${formatCurrency(getDailyRate(date))}${selectable ? "" : ", unavailable"}`}
+                onClick={() => selectDate(date)}
+                disabled={!selectable}
+                key={dateKey}
+              >
+                <span className="day-number">{date.getDate()}</span>
+                <span className="day-price">{formatCurrency(getDailyRate(date))}</span>
+              </button>
+            );
+          })}
         </div>
       </section>
 
       <aside className="summary-card" aria-live="polite">
         <PhotoPlaceholder className="summary-image" label="Ember sauna trailer" />
         <div className="summary-content">
+          {selected.length > 0 && (
+            <>
+              <div className="field booking-time-field">
+                <label htmlFor="check-in-time">Check-in time</label>
+                <select className="input" id="check-in-time" value={checkInTime} onChange={(event) => changeCheckInTime(event.target.value)}>
+                  {availableCheckInOptions.map((time) => (
+                    <option value={time} key={time}>
+                      {new Date(`2000-01-01T${time}:00`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {schedule && (
+                <BookingScheduleSummary checkInAt={schedule.checkInAt} checkOutAt={schedule.checkOutAt} />
+              )}
+              <hr className="gold-rule" />
+            </>
+          )}
           {pricing.lineItems.length ? pricing.lineItems.map(({ date, amount }) => (
             <div className="summary-line" key={toDateKey(date)}>
               <p>{date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</p>
@@ -100,7 +177,7 @@ export function BookingCalendar() {
           {pricing.discount > 0 && <div className="summary-line"><p>{pricing.lineItems.length}-day {pricing.discountRate * 100}% off</p><p>−{formatCurrency(pricing.discount)}</p></div>}
           <hr className="gold-rule" />
           <div className="summary-line summary-total"><p>Total</p><p>{formatCurrency(pricing.total)}</p></div>
-          <button className="button" type="button" disabled={!selected.length} onClick={() => router.push("/book/details")}>Continue</button>
+          <button className="button" type="button" disabled={!schedule} onClick={continueBooking}>Continue</button>
           <p className="placeholder-note">Rental only. No unapproved delivery fee, tax, deposit, or extras are included.</p>
         </div>
       </aside>

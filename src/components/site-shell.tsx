@@ -56,8 +56,8 @@ export function Footer() {
           {navigation.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}
         </nav>
         <div>
-          <p className="eyebrow">Rental window</p>
-          <p>8am–10pm</p>
+          <p className="eyebrow">Flexible check-in</p>
+          <p>Hourly from 8:00 AM–10:00 PM</p>
           <p className="placeholder-note">Policies and legal terms will be added after owner and legal approval.</p>
         </div>
       </div>
