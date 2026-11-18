@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { ensureDatabase } from "@/lib/ensure-database";
 import { prisma } from "@/lib/db";
 import {
   MIN_PASSWORD_LENGTH,
@@ -32,6 +33,7 @@ export async function loginAction(
   const password = String(formData.get("password") ?? "");
   const genericError = { error: "Invalid username or password." };
   if (!username || !password) return genericError;
+  await ensureDatabase();
 
   const clientKey = await getClientKey();
   if (!consumeAttempt(loginAttempts, clientKey, LOGIN_ATTEMPT_LIMIT, LOGIN_WINDOW_MS)) {
@@ -53,6 +55,7 @@ export async function setupAction(
   _previousState: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
+  await ensureDatabase();
   const clientKey = await getClientKey();
   if (!consumeAttempt(setupAttempts, clientKey, SETUP_ATTEMPT_LIMIT, SETUP_WINDOW_MS)) {
     return { error: "Too many setup attempts. Try again later." };
