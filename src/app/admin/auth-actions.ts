@@ -9,10 +9,14 @@ import {
   verifyAdminPassword,
   verifySetupToken,
 } from "@/lib/admin-auth";
-import { endAdminSession, startAdminSession } from "@/lib/admin-session";
+import { endAdminSession } from "@/lib/admin-session";
 
 export type AuthActionState = {
   error?: string;
+  session?: {
+    adminId: string;
+    sessionVersion: number;
+  };
 };
 
 type AttemptWindow = { count: number; resetAt: number };
@@ -66,8 +70,12 @@ async function runLogin(
   if (!valid) return genericError;
 
   loginAttempts.delete(clientKey);
-  await startAdminSession(admin.id, admin.sessionVersion);
-  redirect("/admin");
+  return {
+    session: {
+      adminId: admin.id,
+      sessionVersion: admin.sessionVersion,
+    },
+  };
 }
 
 export async function setupAction(

@@ -13,6 +13,7 @@ const LOGIN_ERRORS: Record<string, string> = {
   invalid: "Invalid username or password.",
   rate: "Too many sign-in attempts. Try again later.",
   database: "The admin database is unavailable. Reload and try again.",
+  session: "Sign-in needs SESSION_SECRET set to 32 or more characters. Update that secret, republish, and try again.",
   retry: "Reload this page and try again.",
 };
 
