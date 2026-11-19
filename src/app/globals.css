@@ -230,6 +230,11 @@ textarea.input { min-height: 120px; resize: vertical; }
 .admin-upcoming { min-height: 300px; overflow: hidden; }
 .admin-booking-table { font-size: 10px; }
 .admin-table-head, .admin-booking-row { display: grid; grid-template-columns: 1fr 1fr .65fr .9fr .9fr 1.55fr 1.25fr 1fr; gap: 8px; align-items: center; }
+.admin-promo-head, .admin-promo-row { display: grid; grid-template-columns: 1.3fr .7fr 1.2fr auto; gap: 8px; align-items: center; padding: 8px; }
+.admin-promo-head { color: #9f9b92; border-bottom: 1px solid #39342c; }
+.admin-promo-row { border-bottom: 1px solid #2b2b27; }
+.admin-promo-row form { margin: 0; }
+.admin-promo-row button { min-height: 36px; }
 .admin-table-head { color: #9f9b92; padding: 2px 8px 7px; border-bottom: 1px solid #39342c; }
 .admin-booking-row { position: relative; min-height: 48px; padding: 7px 8px; border-bottom: 1px solid #302e29; }
 .admin-booking-row:hover { background: #1b1b18; }
@@ -289,7 +294,8 @@ textarea.input { min-height: 120px; resize: vertical; }
   .admin-main { padding: 12px 9px 40px; }
   .admin-stats { grid-template-columns: 1fr 1fr; }
   .admin-dashboard-grid { grid-template-columns: 1fr; }
-  .admin-table-head { display: none; }
+  .admin-table-head, .admin-promo-head { display: none; }
+  .admin-promo-row { grid-template-columns: 1fr auto; }
   .admin-booking-table { display: grid; gap: 8px; }
   .admin-booking-row {
     display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; padding: 12px; border: 1px solid #725632; border-radius: 8px; font-size: 11px;

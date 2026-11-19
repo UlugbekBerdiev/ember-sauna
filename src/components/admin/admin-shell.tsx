@@ -11,6 +11,7 @@ const navigation = [
   ["Calendar", "/admin/calendar"],
   ["Customers", "/admin/customers"],
   ["Payments", "/admin/payments"],
+  ["Promo codes", "/admin/promo"],
   ["Settings", "/admin/settings"],
 ];
 
