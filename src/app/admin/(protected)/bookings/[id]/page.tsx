@@ -75,7 +75,7 @@ export default async function AdminBookingDetailPage({
         <div className="admin-price-lines">
           {priceSnapshot.map((line) => <span key={line.date}>{formatAdminDate(new Date(`${line.date}T12:00:00-05:00`))} {formatCurrency(line.amountCents)}</span>)}
         </div>
-        <p><strong>Subtotal {formatCurrency(booking.subtotalCents)}</strong> · Multi-day discount −{formatCurrency(booking.discountCents)} · <strong>Total {formatCurrency(booking.totalCents)}</strong></p>
+        <p><strong>Subtotal {formatCurrency(booking.subtotalCents)}</strong> · Multi-day discount −{formatCurrency(booking.discountCents)}{booking.promoCode ? <> · Promo {booking.promoCode} −{formatCurrency(booking.promoDiscountCents)}</> : null} · <strong>Total {formatCurrency(booking.totalCents)}</strong></p>
         <p><span className="admin-label">Stripe</span> <PaymentBadge status={booking.paymentStatus} /> {booking.stripeReference && <> · <code>{booking.stripeReference}</code></>}</p>
       </section>
 

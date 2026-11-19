@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
     "/admin/**": ["./prisma/migrations/**/*"],
     "/admin/login": ["./prisma/migrations/**/*"],
     "/admin/setup": ["./prisma/migrations/**/*"],
+    "/admin/promo": ["./prisma/migrations/**/*"],
+    "/admin/promo/create": ["./prisma/migrations/**/*"],
+    "/admin/promo/retire": ["./prisma/migrations/**/*"],
+    "/api/checkout/promo": ["./prisma/migrations/**/*"],
+    "/api/checkout/redeem": ["./prisma/migrations/**/*"],
   },
 };
 

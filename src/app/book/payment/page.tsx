@@ -1,14 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { BookingShell } from "@/components/booking-shell";
 import { BookingScheduleSummary } from "@/components/booking-schedule-summary";
+import { PromoCheckout, type PromoQuote } from "@/components/promo-checkout";
 import { useBooking } from "@/lib/booking-store";
 import { calculateRentalPrice, formatCurrency, fromDateKey } from "@/lib/pricing";
 
 export default function PaymentPage() {
   const { booking } = useBooking();
   const pricing = calculateRentalPrice(booking.dates.map(fromDateKey));
+  const datesKey = booking.dates.join(",");
+  const [promo, setPromo] = useState<{ datesKey: string; quote: PromoQuote } | null>(null);
+  const activePromo = promo?.datesKey === datesKey ? promo.quote : null;
+  const total = activePromo ? activePromo.totalCents : pricing.total;
 
   return (
     <BookingShell activeStep={3}>
@@ -16,10 +22,11 @@ export default function PaymentPage() {
         <section className="booking-panel" style={{margin: 0}} aria-labelledby="payment-heading">
           <p className="eyebrow">Secure card payment</p>
           <h1 id="payment-heading">Complete your booking</h1>
+          <PromoCheckout key={datesKey} booking={booking} onQuote={(quote) => setPromo(quote ? { datesKey, quote } : null)} />
           <div className="checkout-placeholder">
             <p className="eyebrow">Stripe Payment Element mount point</p>
             <p>The secure card form will appear here after a server-created PaymentIntent and Stripe publishable key are configured.</p>
-            <p className="placeholder-note">No card fields are simulated, no payment is submitted, and this button cannot confirm a booking.</p>
+            <p className="placeholder-note">A 100% code confirms the booking. Any remaining balance still needs card payment, which is not connected yet.</p>
           </div>
           <button className="button" type="button" disabled aria-describedby="stripe-note">Payment setup required</button>
           <p id="stripe-note" className="placeholder-note">Stripe is not connected in this implementation phase.</p>
@@ -35,7 +42,8 @@ export default function PaymentPage() {
             <hr className="gold-rule" />
             <div className="summary-line"><p>Rental subtotal</p><p>{formatCurrency(pricing.subtotal)}</p></div>
             {pricing.discount > 0 && <div className="summary-line"><p>{pricing.discountRate * 100}% multi-day discount</p><p>−{formatCurrency(pricing.discount)}</p></div>}
-            <div className="summary-line summary-total"><p>Total</p><p>{formatCurrency(pricing.total)}</p></div>
+            {activePromo && <div className="summary-line"><p>Promo {activePromo.code} · {activePromo.percentOff}% off</p><p>−{formatCurrency(activePromo.discountCents)}</p></div>}
+            <div className="summary-line summary-total"><p>Total</p><p>{formatCurrency(total)}</p></div>
             {booking.address && <><hr className="gold-rule" /><p>{booking.address}<br />{booking.city}, {booking.state} {booking.zip}</p></>}
             <p className="placeholder-note">Final production checkout must add configured delivery fees, taxes, deposit, legal agreement, server-side availability recheck, and a price snapshot before creating payment.</p>
           </div>

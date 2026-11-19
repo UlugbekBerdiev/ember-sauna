@@ -38,18 +38,24 @@ async function applyMigrations() {
     if (!adminTable.rows[0]?.name) {
       await applyMigrationFile(client, "20261118045904_init_admin");
       await applyMigrationFile(client, "20261118122500_add_admin_session_version");
-      return;
+    } else {
+      const sessionVersion = await client.query(
+        `select 1
+         from information_schema.columns
+         where table_schema = 'public'
+           and table_name = 'AdminUser'
+           and column_name = 'sessionVersion'`,
+      );
+      if (sessionVersion.rowCount === 0) {
+        await applyMigrationFile(client, "20261118122500_add_admin_session_version");
+      }
     }
 
-    const sessionVersion = await client.query(
-      `select 1
-       from information_schema.columns
-       where table_schema = 'public'
-         and table_name = 'AdminUser'
-         and column_name = 'sessionVersion'`,
+    const promo = await client.query<{ name: string | null }>(
+      `select to_regclass('public."PromoCode"') as name`,
     );
-    if (sessionVersion.rowCount === 0) {
-      await applyMigrationFile(client, "20261118122500_add_admin_session_version");
+    if (!promo.rows[0]?.name) {
+      await applyMigrationFile(client, "20261119030000_add_promo_code");
     }
   } finally {
     await client.query("select pg_advisory_unlock(7272741)").catch(() => undefined);

@@ -56,6 +56,8 @@ model Booking {
   totalCents          Int
   paymentStatus       PaymentStatus @default(PENDING)
   stripeReference     String?
+  promoCode           String?
+  promoDiscountCents  Int           @default(0)
   status              BookingStatus @default(CONFIRMED)
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
@@ -63,6 +65,15 @@ model Booking {
 
   @@index([checkInAt])
   @@index([status])
+}
+
+model PromoCode {
+  id         String    @id @default(cuid())
+  code       String    @unique
+  percentOff Int
+  createdAt  DateTime  @default(now())
+  redeemedAt DateTime?
+  bookingId  String?   @unique
 }
 
 model AuditLog {
