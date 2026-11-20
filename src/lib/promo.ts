@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
 import { ensureDatabase } from "@/lib/ensure-database";
 import { calculateBookingSchedule } from "@/lib/booking-time";
+import { listOpenStays, lockOpenStays } from "@/lib/open-stays";
 import { calculateRentalPrice, fromDateKey, toDateKey } from "@/lib/pricing";
 import { applyPercentDiscount, generatePromoCode, normalizePromoCode } from "@/lib/promo-code";
 
@@ -113,13 +114,14 @@ export async function redeemFreePromo(input: RedeemInput) {
   const code = normalizePromoCode(input.code);
   if (!code) throw new PromoError("invalid", "That code is not valid.");
   const guest = readGuest(input);
-  const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime);
-  if (!schedule) throw new PromoError("dates", "Choose dates that are still available.");
   const pricing = priceDates(guest.dates);
 
   return withClient(async (client) => {
     await client.query("begin");
     try {
+      const stays = await lockOpenStays(client);
+      const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime, new Date(), stays);
+      if (!schedule) throw new PromoError("dates", "Choose dates that are still available.");
       const promo = await client.query<{
         id: string;
         code: string;
@@ -241,7 +243,8 @@ export async function previewCheckout(input: RedeemInput) {
   const code = input.code?.trim() ? normalizePromoCode(input.code) : "";
   if (input.code?.trim() && !code) throw new PromoError("invalid", "That code is not valid.");
   const guest = readGuest({ ...input, code });
-  const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime);
+  const stays = await listOpenStays();
+  const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime, new Date(), stays);
   if (!schedule) throw new PromoError("dates", "Choose dates that are still available.");
   const pricing = priceDates(guest.dates);
   if (!code) {
@@ -318,7 +321,8 @@ export async function finalizePaidCheckout(paymentIntentId: string, chargedCents
       }
 
       const guest = readGuest(saved.payload);
-      const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime);
+      const stays = await lockOpenStays(client);
+      const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime, new Date(), stays);
       if (!schedule) throw new PromoError("dates", "Choose dates that are still available.");
       const pricing = priceDates(guest.dates);
       let promoCode: string | null = null;

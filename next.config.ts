@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
     "/admin/promo": ["./prisma/migrations/**/*"],
     "/admin/promo/create": ["./prisma/migrations/**/*"],
     "/admin/promo/retire": ["./prisma/migrations/**/*"],
+    "/api/availability": ["./prisma/migrations/**/*"],
     "/api/checkout/promo": ["./prisma/migrations/**/*"],
     "/api/checkout/redeem": ["./prisma/migrations/**/*"],
     "/api/checkout/payment-intent": ["./prisma/migrations/**/*"],
