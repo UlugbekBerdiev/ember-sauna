@@ -55,7 +55,7 @@ model Booking {
   discountCents       Int
   totalCents          Int
   paymentStatus       PaymentStatus @default(PENDING)
-  stripeReference     String?
+  stripeReference     String?       @unique
   promoCode           String?
   promoDiscountCents  Int           @default(0)
   status              BookingStatus @default(CONFIRMED)

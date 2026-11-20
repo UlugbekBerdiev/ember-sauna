@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
-  serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg"],
+  serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg", "stripe"],
   outputFileTracingIncludes: {
     "/admin/**": ["./prisma/migrations/**/*"],
     "/admin/login": ["./prisma/migrations/**/*"],
@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
     "/admin/promo/retire": ["./prisma/migrations/**/*"],
     "/api/checkout/promo": ["./prisma/migrations/**/*"],
     "/api/checkout/redeem": ["./prisma/migrations/**/*"],
+    "/api/checkout/payment-intent": ["./prisma/migrations/**/*"],
+    "/api/checkout/complete": ["./prisma/migrations/**/*"],
+    "/api/stripe/webhook": ["./prisma/migrations/**/*"],
   },
 };
 

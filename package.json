@@ -17,12 +17,15 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@stripe/react-stripe-js": "^7.1.0",
+    "@stripe/stripe-js": "^10.3.0",
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.10",
     "next": "latest",
     "pg": "^8.23.1",
     "react": "latest",
     "react-dom": "latest",
+    "stripe": "^23.2.0",
     "zod": "latest"
   },
   "devDependencies": {

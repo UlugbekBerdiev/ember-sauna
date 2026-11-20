@@ -57,6 +57,13 @@ async function applyMigrations() {
     if (!promo.rows[0]?.name) {
       await applyMigrationFile(client, "20261119030000_add_promo_code");
     }
+
+    const draft = await client.query<{ name: string | null }>(
+      `select to_regclass('public."CheckoutDraft"') as name`,
+    );
+    if (!draft.rows[0]?.name) {
+      await applyMigrationFile(client, "20261120140000_add_checkout_draft");
+    }
   } finally {
     await client.query("select pg_advisory_unlock(7272741)").catch(() => undefined);
     await client.end().catch(() => undefined);
