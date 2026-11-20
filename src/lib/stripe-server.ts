@@ -2,8 +2,8 @@ import Stripe from "stripe";
 import { PromoError } from "@/lib/promo";
 
 export function getStripe() {
-  const key = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
-  if (!key.startsWith("sk_")) {
+  const key = (process.env.STRIPE_SECRET_KEY ?? "").trim().replace(/^['"]|['"]$/g, "");
+  if (!/^(sk|rk)_(live|test)_/.test(key)) {
     throw new PromoError("stripe", "Card payment is not configured.");
   }
   return new Stripe(key);
