@@ -17,10 +17,11 @@ export default async function AdminDashboardPage() {
   });
   const upcoming = bookings.filter(
     (booking) =>
-      booking.checkOutAt >= now &&
+      booking.checkOutAt.getTime() >= now.getTime() &&
       booking.status !== "CANCELED" &&
       booking.status !== "COMPLETED",
   );
+  const recent = [...bookings].sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
   const businessMonth = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     year: "numeric",
@@ -46,19 +47,19 @@ export default async function AdminDashboardPage() {
       <div className="admin-dashboard-grid">
         <AdminMonthCalendar year={year} month={month} bookings={bookings} />
         <section className="admin-panel admin-upcoming">
-          <h2>Upcoming Bookings</h2>
-          {upcoming.length ? (
-            <div className="admin-booking-table" role="table" aria-label="Upcoming bookings">
+          <h2>Bookings</h2>
+          {recent.length ? (
+            <div className="admin-booking-table" role="table" aria-label="Bookings">
               <div className="admin-table-head" role="row">
                 {["Start", "End", "Duration", "Customer", "Phone", "Location", "Status", "Paid"].map((heading) => <span role="columnheader" key={heading}>{heading}</span>)}
               </div>
-              {upcoming.map((booking) => (
+              {recent.map((booking) => (
                 <div className="admin-booking-row" role="row" key={booking.id}>
                   <Link className="admin-row-link" href={`/admin/bookings/${booking.id}`} aria-label={`View booking ${booking.reference}`} />
                   <span data-label="Start">{formatAdminDateTime(booking.checkInAt)}</span>
                   <span data-label="End">{formatAdminDateTime(booking.checkOutAt)}</span>
                   <span data-label="Duration">{booking.durationDays} {booking.durationDays === 1 ? "day" : "days"}</span>
-                  <strong data-label="Customer">{booking.customerName}</strong>
+                  <strong data-label="Customer">{booking.customerName}<br />{booking.reference}</strong>
                   <span data-label="Phone"><a className="admin-phone" href={`tel:${booking.phone.replace(/\D/g, "")}`}>{booking.phone}</a></span>
                   <span data-label="Location">{booking.city} · {booking.deliveryAddress}</span>
                   <span data-label="Status"><StatusBadge status={booking.status} /></span>
@@ -66,7 +67,7 @@ export default async function AdminDashboardPage() {
                 </div>
               ))}
             </div>
-          ) : <p className="admin-empty">No upcoming bookings.</p>}
+          ) : <p className="admin-empty">No bookings yet. Card payments on the public site show up here after a refresh.</p>}
         </section>
       </div>
 

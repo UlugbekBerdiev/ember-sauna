@@ -9,10 +9,6 @@ const sections: Record<string, { title: string; description: string }> = {
     title: "Customers",
     description: "Customer search and booking history will be added in a later CRM phase.",
   },
-  payments: {
-    title: "Payments",
-    description: "Stripe transactions and refunds will appear here after Stripe is connected.",
-  },
   settings: {
     title: "Settings",
     description: "Pricing, delivery zones, policies, and integrations will be configurable here in a later phase.",

@@ -60,7 +60,7 @@ function Confirmation() {
       <section className="booking-panel" aria-labelledby="confirmation-heading">
         <p className="eyebrow">Booking confirmation</p>
         <h1 id="confirmation-heading">{reference ? "Your booking is confirmed" : "Confirming your booking"}</h1>
-        {reference && <p>Reference <strong>{reference}</strong>. A receipt was sent by Stripe when the card payment succeeded.</p>}
+        {reference && <p>Reference <strong>{reference}</strong>. Save this reference. Ember does not send an email or a text message for the booking.</p>}
         {!reference && <p>{message}</p>}
         <div className="booking-actions">
           <Link className="link-arrow" href="/">Back to Ember</Link>
