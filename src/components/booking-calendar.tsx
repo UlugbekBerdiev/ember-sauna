@@ -7,6 +7,7 @@ import { BookingScheduleSummary } from "@/components/booking-schedule-summary";
 import { calculateRentalPrice, formatCurrency, fromDateKey, getDailyRate, toDateKey } from "@/lib/pricing";
 import { useBooking } from "@/lib/booking-store";
 import {
+  businessDateKey,
   calculateBookingSchedule,
   checkInOptionsForSelection,
   isBookingDateSelectable,
@@ -153,27 +154,33 @@ export function BookingCalendar() {
           <h1 id="calendar-heading">{view.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h1>
           <button className="icon-button" type="button" onClick={() => changeMonth(1)} aria-label="Next month">›</button>
         </div>
-        <p className="placeholder-note">Select a start and end date. Booked days are closed. A checkout day opens three hours after the pickup time.</p>
+        <p className="placeholder-note">Select a start and end date. Booked days are closed. A day is also closed when the sauna would still be out the next morning.</p>
         <div className="calendar-grid" role="grid" aria-label={`${view.toLocaleDateString("en-US", { month: "long", year: "numeric" })} rental calendar`}>
           {weekdays.map((day) => <div className="weekday" role="columnheader" key={day}>{day}</div>)}
           {cells.map((date, index) => {
             if (!date) return <div className="day-cell" role="gridcell" aria-disabled="true" key={`blank-${index}`} />;
             const dateKey = toDateKey(date);
             const occupied = isDateOccupied(dateKey, stays);
-            const selectable = availabilityReady && isBookingDateSelectable(dateKey, now, stays);
+            const canStart = checkInOptionsForSelection([dateKey], now, stays).length > 0;
+            const canExtend = selected.length === 1
+              && !selectedKeys.has(dateKey)
+              && checkInOptionsForSelection(datesBetween(selected[0], date).map(toDateKey), now, stays).length > 0;
+            const selectable = availabilityReady && !occupied && (selectedKeys.has(dateKey) || canStart || canExtend);
+            const closed = availabilityReady && !occupied && dateKey >= businessDateKey(now) && !canStart && !selectedKeys.has(dateKey);
+            const priceLabel = occupied ? "Booked" : closed ? "Closed" : formatCurrency(getDailyRate(date));
             return (
               <button
-                className={`day-cell ${selectedKeys.has(dateKey) ? "selected" : ""} ${occupied ? "booked" : ""}`}
+                className={`day-cell ${selectedKeys.has(dateKey) ? "selected" : ""} ${occupied || closed ? "booked" : ""}`}
                 type="button"
                 role="gridcell"
                 aria-selected={selectedKeys.has(dateKey)}
-                aria-label={`${date.toLocaleDateString("en-US", { month: "long", day: "numeric" })}, ${formatCurrency(getDailyRate(date))}${selectable ? "" : ", unavailable"}`}
+                aria-label={`${date.toLocaleDateString("en-US", { month: "long", day: "numeric" })}, ${priceLabel}${selectable ? "" : ", unavailable"}`}
                 onClick={() => selectDate(date)}
                 disabled={!selectable}
                 key={dateKey}
               >
                 <span className="day-number">{date.getDate()}</span>
-                <span className="day-price">{occupied ? "Booked" : formatCurrency(getDailyRate(date))}</span>
+                <span className="day-price">{priceLabel}</span>
               </button>
             );
           })}

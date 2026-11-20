@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateBookingSchedule,
   CHECK_IN_OPTIONS,
+  checkInOptionsForSelection,
   getAvailableCheckInOptions,
   isBookingDateSelectable,
   isDateOccupied,
@@ -83,6 +84,23 @@ describe("booking schedule", () => {
       checkOutAt: "2026-11-20T09:00:00",
     });
     expect(calculateBookingSchedule(["2026-11-17"], "08:00", beforeExamples, [stay])).toBeNull();
+  });
+
+  it("closes a day when every check-in would run into the next booking", () => {
+    const stays = [
+      {
+        checkInAt: new Date("2026-11-21T08:00:00-05:00"),
+        checkOutAt: new Date("2026-11-22T07:00:00-05:00"),
+      },
+      {
+        checkInAt: new Date("2026-11-23T08:00:00-05:00"),
+        checkOutAt: new Date("2026-11-24T07:00:00-05:00"),
+      },
+    ];
+    const morning = new Date("2026-11-18T15:00:00Z");
+    expect(checkInOptionsForSelection(["2026-11-20"], morning, stays)).toEqual([]);
+    expect(checkInOptionsForSelection(["2026-11-22"], morning, stays)).toEqual([]);
+    expect(checkInOptionsForSelection(["2026-11-19", "2026-11-20"], morning, stays).length).toBeGreaterThan(0);
   });
 
   it("validates dates and times in the schedule helper", () => {
