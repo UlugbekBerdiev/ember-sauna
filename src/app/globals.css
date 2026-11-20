@@ -119,7 +119,7 @@ textarea.input { min-height: 120px; resize: vertical; }
 .day-cell.selected { background: var(--gold); color: #0b0c0b; }
 .day-cell:disabled { cursor: default; color: #4e4e4a; background: transparent; }
 .day-cell.booked:disabled { color: #8a8174; background: #161410; }
-.day-cell.booked:disabled .day-price { font-size: 9px; letter-spacing: .04em; text-transform: uppercase; }
+.day-cell.booked:disabled .day-price, .day-cell.booked .day-price { font-size: 9px; letter-spacing: .04em; text-transform: uppercase; }
 .day-number { font-size: clamp(16px, 2.2vw, 26px); line-height: 1; }
 .day-price { font-size: clamp(10px, 1.2vw, 13px); }
 .summary-card { position: sticky; top: 104px; border: 1px solid #2e2d29; background: #0e0f0e; }

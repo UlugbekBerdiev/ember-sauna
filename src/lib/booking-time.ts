@@ -124,6 +124,10 @@ export function formatBookingDateTime(value: string) {
   }).format(new Date(value));
 }
 
+export function businessDateKey(now = new Date()) {
+  return getBusinessClock(now).dateKey;
+}
+
 function getBusinessClock(now: Date) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: BUSINESS_TIME_ZONE,
