@@ -8,7 +8,7 @@ const faqs = [
   ["How long is a rental day?", "Choose an hourly check-in time from 8:00 AM through 10:00 PM. A one-day 5:00 PM check-in checks out at 4:00 PM the next day. For a multi-day rental, check-out is one hour earlier on the final selected day—for example, Nov 15–16 checks out Nov 16 at 4:00 PM."],
   ["Can I rent for more than one day?", "Yes. Select consecutive or individual dates in the booking calendar. The current placeholder discount schedule applies 20% for 2 days, 30% for 3 days, and 40% for 4 or more days."],
   ["What is included?", "The final equipment and inclusion list is still awaiting owner confirmation. It will be shown here and during booking before launch."],
-  ["How do I pay?", "The first release will support card payments through Stripe's secure Payment Element. This phase includes the checkout shell but does not collect or confirm card payment. A one-time promo code can be applied on the payment step, including a code that covers the full total."],
+  ["How do I pay?", "Card payments are collected through Stripe's secure Payment Element. A one-time promo code can be applied on the payment step, including a code that covers the full total. A partial code stays unused until the card payment succeeds."],
   ["What is the cancellation policy?", "Cancellation and rescheduling terms are not yet approved. We will publish them only after owner and legal review, and before accepting a booking."],
 ];
 

@@ -35,7 +35,7 @@ export function PromoCheckout({
       setMessage(
         next.totalCents === 0
           ? `${next.code} covers the full total. Confirm to use this one-time code.`
-          : `${next.code} takes ${next.percentOff}% off. Card payment for the rest is not connected yet, so this code stays unused.`,
+          : `${next.code} takes ${next.percentOff}% off. The code stays unused until the card payment succeeds.`,
       );
     } catch (error) {
       setQuote(null);

@@ -139,7 +139,7 @@ export async function redeemFreePromo(input: RedeemInput) {
       if (discount.totalCents !== 0) {
         throw new PromoError(
           "balance",
-          "This code does not cover the full total. Card payment for the rest is not connected yet, so the code stays unused.",
+          "This code does not cover the full total. Pay the remaining balance by card. The code stays unused until that payment succeeds.",
         );
       }
 
@@ -149,6 +149,8 @@ export async function redeemFreePromo(input: RedeemInput) {
         guest,
         schedule,
         pricing,
+        totalCents: 0,
+        stripeReference: null,
         promoCode: row.code,
         promoDiscountCents: discount.discountCents,
       });
@@ -235,6 +237,160 @@ function readGuest(input: RedeemInput) {
   };
 }
 
+export async function previewCheckout(input: RedeemInput) {
+  const code = input.code?.trim() ? normalizePromoCode(input.code) : "";
+  if (input.code?.trim() && !code) throw new PromoError("invalid", "That code is not valid.");
+  const guest = readGuest({ ...input, code });
+  const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime);
+  if (!schedule) throw new PromoError("dates", "Choose dates that are still available.");
+  const pricing = priceDates(guest.dates);
+  if (!code) {
+    return {
+      pricing,
+      promo: null as PromoQuote | null,
+      amountDue: pricing.total,
+      promoDiscountCents: 0,
+    };
+  }
+  const promo = await quotePromoCode(code, guest.dates);
+  return {
+    pricing,
+    promo,
+    amountDue: promo.totalCents,
+    promoDiscountCents: promo.discountCents,
+  };
+}
+
+export async function rememberCheckout(
+  paymentIntentId: string,
+  input: RedeemInput,
+  amountCents: number,
+  promoCode: string | null,
+) {
+  return withClient(async (client) => {
+    await client.query(
+      `insert into "CheckoutDraft" ("paymentIntentId", payload, "amountCents", "promoCode")
+       values ($1, $2::jsonb, $3, $4)
+       on conflict ("paymentIntentId") do update
+       set payload = excluded.payload,
+           "amountCents" = excluded."amountCents",
+           "promoCode" = excluded."promoCode"`,
+      [paymentIntentId, JSON.stringify(input), amountCents, promoCode],
+    );
+  });
+}
+
+export async function finalizePaidCheckout(paymentIntentId: string, chargedCents: number) {
+  if (!/^pi_[A-Za-z0-9_]+$/.test(paymentIntentId)) {
+    throw new PromoError("invalid", "This payment could not be confirmed.");
+  }
+  if (!Number.isInteger(chargedCents) || chargedCents < 50) {
+    throw new PromoError("balance", "The amount charged does not match this booking.");
+  }
+
+  return withClient(async (client) => {
+    await client.query("begin");
+    try {
+      const existing = await client.query<{ reference: string }>(
+        `select reference from "Booking" where "stripeReference" = $1`,
+        [paymentIntentId],
+      );
+      if (existing.rows[0]) {
+        await client.query("commit");
+        return { reference: existing.rows[0].reference };
+      }
+
+      const draft = await client.query<{
+        payload: RedeemInput;
+        amountCents: number;
+        promoCode: string | null;
+      }>(
+        `select payload, "amountCents", "promoCode"
+         from "CheckoutDraft"
+         where "paymentIntentId" = $1
+         for update`,
+        [paymentIntentId],
+      );
+      const saved = draft.rows[0];
+      if (!saved) throw new PromoError("missing", "This payment has no booking to confirm.");
+      if (saved.amountCents !== chargedCents) {
+        throw new PromoError("balance", "The amount charged does not match this booking.");
+      }
+
+      const guest = readGuest(saved.payload);
+      const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime);
+      if (!schedule) throw new PromoError("dates", "Choose dates that are still available.");
+      const pricing = priceDates(guest.dates);
+      let promoCode: string | null = null;
+      let promoId: string | null = null;
+      let promoDiscountCents = 0;
+
+      if (saved.promoCode) {
+        const promo = await client.query<{
+          id: string;
+          code: string;
+          percentOff: number;
+          redeemedAt: Date | null;
+        }>(
+          `select id, code, "percentOff", "redeemedAt"
+           from "PromoCode"
+           where code = $1
+           for update`,
+          [saved.promoCode],
+        );
+        const row = promo.rows[0];
+        if (!row || row.redeemedAt) {
+          throw new PromoError("used", "That code has already been used. The card payment needs a refund.");
+        }
+        const discount = applyPercentDiscount(pricing.total, row.percentOff);
+        if (discount.totalCents !== chargedCents) {
+          throw new PromoError("balance", "The amount charged does not match this booking.");
+        }
+        promoCode = row.code;
+        promoId = row.id;
+        promoDiscountCents = discount.discountCents;
+      } else if (pricing.total !== chargedCents) {
+        throw new PromoError("balance", "The amount charged does not match this booking.");
+      }
+
+      const bookingId = randomUUID();
+      const reference = await insertBooking(client, {
+        id: bookingId,
+        guest,
+        schedule,
+        pricing,
+        totalCents: chargedCents,
+        stripeReference: paymentIntentId,
+        promoCode,
+        promoDiscountCents,
+      });
+      if (promoId) {
+        const redeemed = await client.query(
+          `update "PromoCode"
+           set "redeemedAt" = now(), "bookingId" = $2
+           where id = $1 and "redeemedAt" is null`,
+          [promoId, bookingId],
+        );
+        if ((redeemed.rowCount ?? 0) !== 1) {
+          throw new PromoError("used", "That code has already been used. The card payment needs a refund.");
+        }
+      }
+      await client.query("commit");
+      return { reference };
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      if (isUniqueViolation(error)) {
+        const saved = await client.query<{ reference: string }>(
+          `select reference from "Booking" where "stripeReference" = $1`,
+          [paymentIntentId],
+        );
+        if (saved.rows[0]) return { reference: saved.rows[0].reference };
+      }
+      throw error;
+    }
+  });
+}
+
 async function findAvailableCode(client: pg.Client, code: string) {
   const result = await client.query<{ code: string; percentOff: number; redeemedAt: Date | null }>(
     `select code, "percentOff", "redeemedAt" from "PromoCode" where code = $1`,
@@ -253,7 +409,9 @@ async function insertBooking(
     guest: ReturnType<typeof readGuest>;
     schedule: { checkInAt: string; checkOutAt: string };
     pricing: ReturnType<typeof calculateRentalPrice>;
-    promoCode: string;
+    totalCents: number;
+    stripeReference: string | null;
+    promoCode: string | null;
     promoDiscountCents: number;
   },
 ) {
@@ -269,12 +427,12 @@ async function insertBooking(
            id, reference, "customerName", phone, email, "deliveryAddress", city, state, "postalCode",
            "deliveryNotes", "selectedDates", "checkInAt", "checkOutAt", "durationDays",
            "perDayPriceSnapshot", "subtotalCents", "discountCents", "totalCents",
-           "paymentStatus", "promoCode", "promoDiscountCents", status, "updatedAt"
+           "paymentStatus", "stripeReference", "promoCode", "promoDiscountCents", status, "updatedAt"
          ) values (
            $1, $2, $3, $4, $5, $6, $7, $8, $9,
            $10, $11::timestamp[], $12, $13, $14,
-           $15::jsonb, $16, $17, 0,
-           'PAID', $18, $19, 'CONFIRMED', now()
+           $15::jsonb, $16, $17, $18,
+           'PAID', $19, $20, $21, 'CONFIRMED', now()
          )`,
         [
           input.id,
@@ -294,13 +452,18 @@ async function insertBooking(
           JSON.stringify(snapshot),
           input.pricing.subtotal,
           input.pricing.discount,
+          input.totalCents,
+          input.stripeReference,
           input.promoCode,
           input.promoDiscountCents,
         ],
       );
       return reference;
     } catch (error) {
-      if (!isUniqueViolation(error)) throw error;
+      const constraint = typeof error === "object" && error !== null && "constraint" in error
+        ? String(error.constraint)
+        : "";
+      if (constraint !== "Booking_reference_key") throw error;
     }
   }
   throw new Error("Could not save the booking.");
