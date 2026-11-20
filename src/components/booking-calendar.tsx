@@ -8,8 +8,10 @@ import { calculateRentalPrice, formatCurrency, fromDateKey, getDailyRate, toDate
 import { useBooking } from "@/lib/booking-store";
 import {
   calculateBookingSchedule,
-  getAvailableCheckInOptions,
+  checkInOptionsForSelection,
   isBookingDateSelectable,
+  isDateOccupied,
+  type StayWindow,
 } from "@/lib/booking-time";
 
 const weekdays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -37,35 +39,66 @@ export function BookingCalendar() {
   const searchParams = useSearchParams();
   const { booking, updateBooking } = useBooking();
   const now = useMemo(() => new Date(), []);
+  const [stays, setStays] = useState<StayWindow[]>([]);
+  const [availabilityReady, setAvailabilityReady] = useState(false);
   const initial = searchParams.get("date");
   const hasValidInitial = Boolean(
     initial &&
     /^\d{4}-\d{2}-\d{2}$/.test(initial) &&
-    isBookingDateSelectable(initial, now),
+    isBookingDateSelectable(initial, now, stays),
   );
   const initialDate = hasValidInitial ? fromDateKey(initial!) : now;
   const [view, setView] = useState(() => new Date(initialDate.getFullYear(), initialDate.getMonth(), 1));
   const [selected, setSelected] = useState<Date[]>(() => hasValidInitial ? [initialDate] : []);
 
   useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/availability")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("unavailable");
+        const body = await response.json() as { stays?: Array<{ checkInAt: string; checkOutAt: string }> };
+        if (cancelled) return;
+        setStays((body.stays ?? []).map((stay) => ({
+          checkInAt: new Date(stay.checkInAt),
+          checkOutAt: new Date(stay.checkOutAt),
+        })));
+        setAvailabilityReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailabilityReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!booking.dates.length || selected.length) return;
-    const validDates = booking.dates.filter((dateKey) => isBookingDateSelectable(dateKey, now));
+    const validDates = booking.dates.filter((dateKey) => isBookingDateSelectable(dateKey, now, stays));
     if (!validDates.length) return;
     const timer = window.setTimeout(() => setSelected(validDates.map(fromDateKey)), 0);
     return () => window.clearTimeout(timer);
-  }, [booking.dates, now, selected.length]);
+  }, [booking.dates, now, selected.length, stays]);
+
+  useEffect(() => {
+    if (!availabilityReady) return;
+    const timer = window.setTimeout(() => {
+      setSelected((current) => current.filter((date) => isBookingDateSelectable(toDateKey(date), now, stays)));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [availabilityReady, now, stays]);
 
   const cells = useMemo(() => buildMonth(view.getFullYear(), view.getMonth()), [view]);
   const pricing = calculateRentalPrice(selected);
   const selectedKeys = new Set(selected.map(toDateKey));
   const selectedDateKeys = selected.map(toDateKey);
   const availableCheckInOptions = selectedDateKeys.length
-    ? getAvailableCheckInOptions([...selectedDateKeys].sort()[0], now)
+    ? checkInOptionsForSelection(selectedDateKeys, now, stays)
     : [];
   const checkInTime = availableCheckInOptions.includes(booking.checkInTime)
     ? booking.checkInTime
     : availableCheckInOptions[0] ?? booking.checkInTime;
-  const schedule = calculateBookingSchedule(selectedDateKeys, checkInTime, now);
+  const schedule = calculateBookingSchedule(selectedDateKeys, checkInTime, now, stays);
 
   function selectDate(date: Date) {
     let next: Date[];
@@ -74,10 +107,11 @@ export function BookingCalendar() {
     else next = datesBetween(selected[0], date);
     const nextDateKeys = next.map(toDateKey);
     const nextOptions = nextDateKeys.length
-      ? getAvailableCheckInOptions([...nextDateKeys].sort()[0], now)
+      ? checkInOptionsForSelection(nextDateKeys, now, stays)
       : [];
     const nextCheckInTime = nextOptions.includes(checkInTime) ? checkInTime : nextOptions[0] ?? "08:00";
-    const nextSchedule = calculateBookingSchedule(nextDateKeys, nextCheckInTime, now);
+    const nextSchedule = calculateBookingSchedule(nextDateKeys, nextCheckInTime, now, stays);
+    if (nextDateKeys.length && !nextSchedule) return;
     setSelected(next);
     updateBooking({
       dates: nextDateKeys,
@@ -92,7 +126,7 @@ export function BookingCalendar() {
   }
 
   function changeCheckInTime(value: string) {
-    const nextSchedule = calculateBookingSchedule(selectedDateKeys, value, now);
+    const nextSchedule = calculateBookingSchedule(selectedDateKeys, value, now, stays);
     updateBooking({
       checkInTime: value,
       checkInAt: nextSchedule?.checkInAt ?? "",
@@ -119,16 +153,17 @@ export function BookingCalendar() {
           <h1 id="calendar-heading">{view.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h1>
           <button className="icon-button" type="button" onClick={() => changeMonth(1)} aria-label="Next month">›</button>
         </div>
-        <p className="placeholder-note">Select a start and end date. Availability is illustrative until the server booking system is connected.</p>
+        <p className="placeholder-note">Select a start and end date. Booked days are closed. A checkout day opens three hours after the pickup time.</p>
         <div className="calendar-grid" role="grid" aria-label={`${view.toLocaleDateString("en-US", { month: "long", year: "numeric" })} rental calendar`}>
           {weekdays.map((day) => <div className="weekday" role="columnheader" key={day}>{day}</div>)}
           {cells.map((date, index) => {
             if (!date) return <div className="day-cell" role="gridcell" aria-disabled="true" key={`blank-${index}`} />;
             const dateKey = toDateKey(date);
-            const selectable = isBookingDateSelectable(dateKey, now);
+            const occupied = isDateOccupied(dateKey, stays);
+            const selectable = availabilityReady && isBookingDateSelectable(dateKey, now, stays);
             return (
               <button
-                className={`day-cell ${selectedKeys.has(dateKey) ? "selected" : ""}`}
+                className={`day-cell ${selectedKeys.has(dateKey) ? "selected" : ""} ${occupied ? "booked" : ""}`}
                 type="button"
                 role="gridcell"
                 aria-selected={selectedKeys.has(dateKey)}
@@ -138,7 +173,7 @@ export function BookingCalendar() {
                 key={dateKey}
               >
                 <span className="day-number">{date.getDate()}</span>
-                <span className="day-price">{formatCurrency(getDailyRate(date))}</span>
+                <span className="day-price">{occupied ? "Booked" : formatCurrency(getDailyRate(date))}</span>
               </button>
             );
           })}
@@ -162,6 +197,9 @@ export function BookingCalendar() {
               </div>
               {schedule && (
                 <BookingScheduleSummary checkInAt={schedule.checkInAt} checkOutAt={schedule.checkOutAt} />
+              )}
+              {!availableCheckInOptions.length && (
+                <p className="placeholder-note">That check-in is too close to another pickup. Choose another day.</p>
               )}
               <hr className="gold-rule" />
             </>
