@@ -102,6 +102,17 @@ textarea.input { min-height: 120px; resize: vertical; }
 .contact-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 70px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .full { grid-column: 1/-1; }
+.address-field { position: relative; }
+.address-menu {
+  position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0;
+  margin: 0; padding: 0; list-style: none; max-height: 260px; overflow: auto;
+  background: #161713; border: 1px solid #504433; box-shadow: 0 16px 36px #000c;
+}
+.address-menu button {
+  display: block; width: 100%; padding: 12px 13px; text-align: left; color: var(--cream);
+  background: transparent; border: 0; border-bottom: 1px solid #2b2924; cursor: pointer;
+}
+.address-menu button[aria-selected="true"], .address-menu button:hover { background: #2a241c; color: var(--gold-light); }
 
 .booking-header { padding: 20px 0; border-bottom: 1px solid var(--line); }
 .booking-header .container { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
