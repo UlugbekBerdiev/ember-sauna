@@ -16,6 +16,7 @@ export async function POST(request: Request) {
       code: String(body.code ?? ""),
       dates: readDates(body.dates),
       checkInTime: String(body.checkInTime ?? ""),
+      checkOutTime: String(body.checkOutTime ?? ""),
       firstName: String(body.firstName ?? ""),
       lastName: String(body.lastName ?? ""),
       email: String(body.email ?? ""),

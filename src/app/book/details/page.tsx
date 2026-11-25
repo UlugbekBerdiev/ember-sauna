@@ -19,6 +19,10 @@ export default function DetailsPage() {
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (!booking.checkInAt || !booking.checkOutAt) {
+      router.push("/book");
+      return;
+    }
     router.push("/book/payment");
   }
 

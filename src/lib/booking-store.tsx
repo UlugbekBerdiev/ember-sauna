@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 export type BookingDetails = {
   dates: string[];
   checkInTime: string;
+  checkOutTime: string;
   checkInAt: string;
   checkOutAt: string;
   firstName: string;
@@ -20,7 +21,8 @@ export type BookingDetails = {
 
 const initialDetails: BookingDetails = {
   dates: [],
-  checkInTime: "08:00",
+  checkInTime: "",
+  checkOutTime: "",
   checkInAt: "",
   checkOutAt: "",
   firstName: "",

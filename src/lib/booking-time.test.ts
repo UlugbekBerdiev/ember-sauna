@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   calculateBookingSchedule,
   CHECK_IN_OPTIONS,
+  CHECK_OUT_OPTIONS,
   checkInOptionsForSelection,
+  checkOutOptionsForSelection,
   getAvailableCheckInOptions,
   isBookingDateSelectable,
   isDateOccupied,
@@ -17,37 +19,41 @@ describe("booking schedule", () => {
     expect(CHECK_IN_OPTIONS.at(-1)).toBe("22:00");
   });
 
-  it("defaults to 8 AM and checks out at 7 AM the next day", () => {
-    expect(calculateBookingSchedule(["2026-11-15"], "08:00", beforeExamples)).toEqual({
+  it("requires a chosen check-in and check-out time", () => {
+    expect(CHECK_OUT_OPTIONS[0]).toBe("07:00");
+    expect(CHECK_OUT_OPTIONS.at(-1)).toBe("22:00");
+    expect(calculateBookingSchedule(["2026-11-15"], "", "07:00", beforeExamples)).toBeNull();
+    expect(calculateBookingSchedule(["2026-11-15"], "08:00", "", beforeExamples)).toBeNull();
+    expect(calculateBookingSchedule(["2026-11-15"], "08:00", "07:00", beforeExamples)).toEqual({
       checkInAt: "2026-11-15T08:00:00",
       checkOutAt: "2026-11-16T07:00:00",
     });
   });
 
   it("checks out on the last selected day for a two-day booking", () => {
-    expect(calculateBookingSchedule(["2026-11-15", "2026-11-16"], "17:00", beforeExamples)).toEqual({
+    expect(calculateBookingSchedule(["2026-11-15", "2026-11-16"], "17:00", "11:00", beforeExamples)).toEqual({
       checkInAt: "2026-11-15T17:00:00",
-      checkOutAt: "2026-11-16T16:00:00",
+      checkOutAt: "2026-11-16T11:00:00",
     });
   });
 
   it("checks out on the last selected day for a three-day booking", () => {
-    expect(calculateBookingSchedule(["2026-11-20", "2026-11-21", "2026-11-22"], "17:00", beforeExamples)).toEqual({
+    expect(calculateBookingSchedule(["2026-11-20", "2026-11-21", "2026-11-22"], "17:00", "16:00", beforeExamples)).toEqual({
       checkInAt: "2026-11-20T17:00:00",
       checkOutAt: "2026-11-22T16:00:00",
     });
   });
 
   it("crosses month and year boundaries for single-day bookings", () => {
-    expect(calculateBookingSchedule(["2026-11-30"], "17:00", beforeExamples)?.checkOutAt).toBe("2026-12-01T16:00:00");
-    expect(calculateBookingSchedule(["2026-12-31"], "08:00", beforeExamples)).toEqual({
+    expect(calculateBookingSchedule(["2026-11-30"], "17:00", "16:00", beforeExamples)?.checkOutAt).toBe("2026-12-01T16:00:00");
+    expect(calculateBookingSchedule(["2026-12-31"], "08:00", "07:00", beforeExamples)).toEqual({
       checkInAt: "2026-12-31T08:00:00",
       checkOutAt: "2027-01-01T07:00:00",
     });
   });
 
   it("sorts and deduplicates dates before finding the schedule bounds", () => {
-    expect(calculateBookingSchedule(["2026-11-16", "2026-11-15", "2026-11-15"], "22:00", beforeExamples)).toEqual({
+    expect(calculateBookingSchedule(["2026-11-16", "2026-11-15", "2026-11-15"], "22:00", "21:00", beforeExamples)).toEqual({
       checkInAt: "2026-11-15T22:00:00",
       checkOutAt: "2026-11-16T21:00:00",
     });
@@ -78,12 +84,12 @@ describe("booking schedule", () => {
     expect(isDateOccupied("2026-11-19", [stay])).toBe(false);
     expect(isBookingDateSelectable("2026-11-18", beforeExamples, [stay])).toBe(false);
     expect(getAvailableCheckInOptions("2026-11-19", beforeExamples, [stay])[0]).toBe("10:00");
-    expect(calculateBookingSchedule(["2026-11-19"], "09:00", beforeExamples, [stay])).toBeNull();
-    expect(calculateBookingSchedule(["2026-11-19"], "10:00", beforeExamples, [stay])).toEqual({
+    expect(calculateBookingSchedule(["2026-11-19"], "09:00", "08:00", beforeExamples, [stay])).toBeNull();
+    expect(calculateBookingSchedule(["2026-11-19"], "10:00", "09:00", beforeExamples, [stay])).toEqual({
       checkInAt: "2026-11-19T10:00:00",
       checkOutAt: "2026-11-20T09:00:00",
     });
-    expect(calculateBookingSchedule(["2026-11-17"], "08:00", beforeExamples, [stay])).toBeNull();
+    expect(calculateBookingSchedule(["2026-11-17"], "08:00", "07:00", beforeExamples, [stay])).toBeNull();
   });
 
   it("closes a day when every check-in would run into the next booking", () => {
@@ -99,17 +105,19 @@ describe("booking schedule", () => {
     ];
     const morning = new Date("2026-11-18T15:00:00Z");
     expect(checkInOptionsForSelection(["2026-11-20"], morning, stays)).toEqual([]);
+    expect(checkOutOptionsForSelection(["2026-11-20"], "08:00", morning, stays)).toEqual([]);
     expect(checkInOptionsForSelection(["2026-11-22"], morning, stays)).toEqual([]);
+    expect(checkOutOptionsForSelection(["2026-11-19", "2026-11-20"], "08:00", morning, stays)).toContain("22:00");
     expect(checkInOptionsForSelection(["2026-11-19", "2026-11-20"], morning, stays).length).toBeGreaterThan(0);
   });
 
   it("validates dates and times in the schedule helper", () => {
     const eightThirtyAm = new Date("2026-07-15T12:30:00Z");
-    expect(calculateBookingSchedule([], "08:00", eightThirtyAm)).toBeNull();
-    expect(calculateBookingSchedule(["2026-07-14"], "08:00", eightThirtyAm)).toBeNull();
-    expect(calculateBookingSchedule(["2026-07-15"], "08:00", eightThirtyAm)).toBeNull();
-    expect(calculateBookingSchedule(["2026-07-15"], "09:00", eightThirtyAm)).not.toBeNull();
-    expect(calculateBookingSchedule(["2026-07-16"], "07:00", eightThirtyAm)).toBeNull();
-    expect(calculateBookingSchedule(["2026-02-30"], "09:00", eightThirtyAm)).toBeNull();
+    expect(calculateBookingSchedule([], "08:00", "07:00", eightThirtyAm)).toBeNull();
+    expect(calculateBookingSchedule(["2026-07-14"], "08:00", "07:00", eightThirtyAm)).toBeNull();
+    expect(calculateBookingSchedule(["2026-07-15"], "08:00", "07:00", eightThirtyAm)).toBeNull();
+    expect(calculateBookingSchedule(["2026-07-15"], "09:00", "08:00", eightThirtyAm)).not.toBeNull();
+    expect(calculateBookingSchedule(["2026-07-16"], "07:00", "08:00", eightThirtyAm)).toBeNull();
+    expect(calculateBookingSchedule(["2026-02-30"], "09:00", "08:00", eightThirtyAm)).toBeNull();
   });
 });

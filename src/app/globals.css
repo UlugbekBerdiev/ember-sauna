@@ -57,7 +57,7 @@ button, a, input, textarea { outline-offset: 4px; }
 .hero { position: relative; min-height: 650px; display: grid; align-items: center; overflow: hidden; }
 .hero-bg { position: absolute; inset: 0; }
 .hero-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,9,8,.95) 0%, rgba(8,9,8,.72) 42%, rgba(8,9,8,.18) 100%); }
-.hero-content { position: relative; z-index: 2; padding: 82px 0 142px; }
+.hero-content { position: relative; z-index: 2; padding: 82px 0 72px; }
 .hero-content p { max-width: 500px; }
 .cta-row { display: flex; gap: 14px; margin-top: 30px; }
 .photo-placeholder {
@@ -72,11 +72,10 @@ button, a, input, textarea { outline-offset: 4px; }
 .hero-photo { min-height: 650px; border: 0; }
 .hero-photo span, .hero-photo small { transform: translateX(27vw); }
 
-.quick-booking { position: relative; z-index: 3; margin-top: -72px; }
-.quick-form { padding: 22px; display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: 14px; background: rgba(17,18,15,.97); border: 1px solid var(--line); box-shadow: 0 12px 40px #0007; }
 .field { display: grid; gap: 7px; }
 .field label, .field-label { color: #d5d0c6; font-size: 13px; font-weight: 700; letter-spacing: .06em; }
 .input { width: 100%; min-height: 50px; padding: 11px 13px; color: var(--cream); border: 1px solid #504433; background: #10110f; border-radius: 0; }
+.input:disabled { opacity: .55; }
 .input::placeholder { color: #7f7b74; }
 textarea.input { min-height: 120px; resize: vertical; }
 .field-error { color: var(--error); font-size: 13px; }
@@ -129,7 +128,7 @@ textarea.input { min-height: 120px; resize: vertical; }
 .summary-line p { margin: 4px 0; }
 .booking-time-field { margin-bottom: 20px; }
 .schedule-summary { display: grid; gap: 12px; margin: 0; }
-.schedule-summary div { display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: baseline; }
+.schedule-summary div { display: grid; grid-template-columns: 104px 1fr; gap: 12px; align-items: baseline; }
 .schedule-summary dt { color: var(--gold-light); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .schedule-summary dd { margin: 0; color: var(--cream); font-weight: 700; }
 .summary-total { color: var(--gold-light); font: 400 29px Georgia, serif; letter-spacing: .08em; }
@@ -154,12 +153,10 @@ textarea.input { min-height: 120px; resize: vertical; }
   .hero-bg::after { background: linear-gradient(0deg, var(--ink), transparent 40%); }
   .hero-photo { min-height: 340px; }
   .hero-photo span, .hero-photo small { transform: none; }
-  .hero-content { margin-top: -36px; padding: 0 0 100px; text-align: center; }
+  .hero-content { margin-top: -36px; padding: 0 0 48px; text-align: center; }
   .hero-content .display { font-size: 45px; }
   .hero-content p { margin-inline: auto; }
   .cta-row { flex-direction: column; }
-  .quick-booking { margin-top: -70px; }
-  .quick-form { grid-template-columns: 1fr; }
   .status { grid-column: auto; }
   .section { padding: 68px 0; }
   .steps-grid, .feature-grid, .price-grid, .footer-grid, .split, .contact-grid, .form-grid, .booking-layout { grid-template-columns: 1fr; }

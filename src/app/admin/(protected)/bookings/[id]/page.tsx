@@ -71,7 +71,7 @@ export default async function AdminBookingDetailPage({
           <div><span>Check-in</span><strong>{formatAdminDateTime(booking.checkInAt)}</strong></div>
           <div><span>Check-out</span><strong>{formatAdminDateTime(booking.checkOutAt)}</strong></div>
         </div>
-        <p className="placeholder-note">Automatic rule: check-out is one hour before check-in on the last selected day, or the next day for a one-day rental.</p>
+        <p className="placeholder-note">The customer chooses both times. A one-day rental checks out the next day. A longer rental checks out on the last selected day.</p>
         <div className="admin-price-lines">
           {priceSnapshot.map((line) => <span key={line.date}>{formatAdminDate(new Date(`${line.date}T12:00:00-05:00`))} {formatCurrency(line.amountCents)}</span>)}
         </div>

@@ -45,6 +45,7 @@ function readCheckout(body: Record<string, unknown>): RedeemInput {
     code: String(body.code ?? ""),
     dates: readDates(body.dates),
     checkInTime: String(body.checkInTime ?? ""),
+    checkOutTime: String(body.checkOutTime ?? ""),
     firstName: String(body.firstName ?? ""),
     lastName: String(body.lastName ?? ""),
     email: String(body.email ?? ""),
