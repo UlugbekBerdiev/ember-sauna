@@ -22,7 +22,7 @@ export default function PricingPage() {
         <div className="container">
           <p className="placeholder-note">Local development pricing — approved as placeholders, not final published business rates.</p>
           <div className="price-grid">{rates.map(([label, price, unit]) => <div className="price-block" key={label}><p>{label}</p><p className="price">{price}</p><p>{unit}</p></div>)}</div>
-          <p>Select an hourly check-in from 8:00 AM through 10:00 PM. Check-out is one hour earlier: the next day for a one-day rental, or on the last selected day for a multi-day rental.</p>
+          <p>Choose a check-in time from 8:00 AM through 10:00 PM and a check-out time from 7:00 AM through 10:00 PM. A one-day rental checks out the next day. A longer rental checks out on the last selected day.</p>
         </div>
       </section>
       <section className="section section-dark">

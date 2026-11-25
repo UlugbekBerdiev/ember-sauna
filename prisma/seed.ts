@@ -85,9 +85,11 @@ const samples: SampleBooking[] = [
 
 async function main() {
   for (const sample of samples) {
+    const checkoutHour = Number(sample.checkInTime.slice(0, 2)) - 1;
     const schedule = calculateBookingSchedule(
       sample.dateKeys,
       sample.checkInTime,
+      `${String(checkoutHour).padStart(2, "0")}:00`,
       new Date("2026-11-01T12:00:00Z"),
     );
     if (!schedule) throw new Error(`Invalid fake schedule for ${sample.reference}.`);

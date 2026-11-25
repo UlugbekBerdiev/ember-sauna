@@ -3,6 +3,7 @@ import "server-only";
 import { randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
 import { ensureDatabase } from "@/lib/ensure-database";
+import { sendBookingAlert } from "@/lib/booking-alert";
 import { calculateBookingSchedule } from "@/lib/booking-time";
 import { listOpenStays, lockOpenStays } from "@/lib/open-stays";
 import { calculateRentalPrice, fromDateKey, toDateKey } from "@/lib/pricing";
@@ -99,6 +100,7 @@ export type RedeemInput = {
   code: string;
   dates: string[];
   checkInTime: string;
+  checkOutTime: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -120,8 +122,8 @@ export async function redeemFreePromo(input: RedeemInput) {
     await client.query("begin");
     try {
       const stays = await lockOpenStays(client);
-      const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime, new Date(), stays);
-      if (!schedule) throw new PromoError("dates", "Choose dates that are still available.");
+      const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime, guest.checkOutTime, new Date(), stays);
+      if (!schedule) throw new PromoError("dates", scheduleError(guest));
       const promo = await client.query<{
         id: string;
         code: string;
@@ -166,6 +168,7 @@ export async function redeemFreePromo(input: RedeemInput) {
         throw new PromoError("used", "That code has already been used.");
       }
       await client.query("commit");
+      await alertOwner(reference, guest, schedule);
       return { reference, code: row.code };
     } catch (error) {
       await client.query("rollback").catch(() => undefined);
@@ -212,6 +215,7 @@ function readGuest(input: RedeemInput) {
   const zip = text(input.zip ?? "", 10);
   const notes = text(input.notes ?? "", 500);
   const checkInTime = text(input.checkInTime ?? "", 5);
+  const checkOutTime = text(input.checkOutTime ?? "", 5);
   if (
     firstName.length < 1
     || lastName.length < 1
@@ -227,6 +231,7 @@ function readGuest(input: RedeemInput) {
   return {
     dates: input.dates,
     checkInTime,
+    checkOutTime,
     firstName,
     lastName,
     email,
@@ -244,8 +249,8 @@ export async function previewCheckout(input: RedeemInput) {
   if (input.code?.trim() && !code) throw new PromoError("invalid", "That code is not valid.");
   const guest = readGuest({ ...input, code });
   const stays = await listOpenStays();
-  const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime, new Date(), stays);
-  if (!schedule) throw new PromoError("dates", "Choose dates that are still available.");
+  const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime, guest.checkOutTime, new Date(), stays);
+  if (!schedule) throw new PromoError("dates", scheduleError(guest));
   const pricing = priceDates(guest.dates);
   if (!code) {
     return {
@@ -322,8 +327,8 @@ export async function finalizePaidCheckout(paymentIntentId: string, chargedCents
 
       const guest = readGuest(saved.payload);
       const stays = await lockOpenStays(client);
-      const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime, new Date(), stays);
-      if (!schedule) throw new PromoError("dates", "Choose dates that are still available.");
+      const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime, guest.checkOutTime, new Date(), stays);
+      if (!schedule) throw new PromoError("dates", scheduleError(guest));
       const pricing = priceDates(guest.dates);
       let promoCode: string | null = null;
       let promoId: string | null = null;
@@ -380,6 +385,7 @@ export async function finalizePaidCheckout(paymentIntentId: string, chargedCents
         }
       }
       await client.query("commit");
+      await alertOwner(reference, guest, schedule);
       return { reference };
     } catch (error) {
       await client.query("rollback").catch(() => undefined);
@@ -488,6 +494,26 @@ async function withClient<T>(run: (client: pg.Client) => Promise<T>) {
   } finally {
     await client.end().catch(() => undefined);
   }
+}
+
+function scheduleError(guest: { checkInTime: string; checkOutTime: string }) {
+  if (!guest.checkInTime || !guest.checkOutTime) return "Choose a check-in time and a check-out time.";
+  return "Choose dates that are still available.";
+}
+
+async function alertOwner(
+  reference: string,
+  guest: ReturnType<typeof readGuest>,
+  schedule: { checkInAt: string; checkOutAt: string },
+) {
+  await sendBookingAlert({
+    reference,
+    name: `${guest.firstName} ${guest.lastName}`,
+    phone: guest.phone,
+    checkInAt: schedule.checkInAt,
+    checkOutAt: schedule.checkOutAt,
+    address: `${guest.address}, ${guest.city}, ${guest.state} ${guest.zip}`,
+  });
 }
 
 function isUniqueViolation(error: unknown) {

@@ -5,7 +5,7 @@ export const metadata = { title: "FAQ" };
 
 const faqs = [
   ["Where do you deliver?", "The current service-area direction is approximately a 30-minute drive from Damascus, Maryland. Your exact address will be checked when delivery zones are configured."],
-  ["How long is a rental day?", "Choose an hourly check-in time from 8:00 AM through 10:00 PM. A one-day 5:00 PM check-in checks out at 4:00 PM the next day. For a multi-day rental, check-out is one hour earlier on the final selected day—for example, Nov 15–16 checks out Nov 16 at 4:00 PM."],
+  ["How long is a rental day?", "Choose a check-in time from 8:00 AM through 10:00 PM and a check-out time from 7:00 AM through 10:00 PM. A one-day rental checks out the next day. A multi-day rental checks out on the last selected day."],
   ["Can I rent for more than one day?", "Yes. Select consecutive or individual dates in the booking calendar. The current placeholder discount schedule applies 20% for 2 days, 30% for 3 days, and 40% for 4 or more days."],
   ["What is included?", "The final equipment and inclusion list is still awaiting owner confirmation. It will be shown here and during booking before launch."],
   ["How do I pay?", "Card payments are collected through Stripe's secure Payment Element. A one-time promo code can be applied on the payment step, including a code that covers the full total. A partial code stays unused until the card payment succeeds."],

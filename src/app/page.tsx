@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Footer, Header, PhotoPlaceholder } from "@/components/site-shell";
-import { QuickBooking } from "@/components/quick-booking";
 
 export default function Home() {
   return (
@@ -20,11 +19,6 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="quick-booking container" aria-labelledby="availability-title">
-          <h2 id="availability-title" className="sr-only">Check availability</h2>
-          <QuickBooking />
-        </section>
-
         <section className="section">
           <div className="container">
             <div className="section-header">
@@ -32,7 +26,7 @@ export default function Home() {
               <h2 className="title">Your retreat, delivered.</h2>
             </div>
             <div className="steps-grid">
-              {[["01", "Choose your dates", "Select one or more available days and an hourly check-in time."], ["02", "We deliver", "We bring and set up the sauna at an approved location."], ["03", "Heat & unwind", "One-day rentals check out the next day; multi-day rentals check out on the last selected day."]].map(([number, title, text]) => (
+              {[["01", "Choose your dates", "Select one or more available days, then choose a check-in time and a check-out time."], ["02", "We deliver", "We bring and set up the sauna at an approved location."], ["03", "Heat & unwind", "A one-day rental checks out the next day. A longer rental checks out on the last selected day."]].map(([number, title, text]) => (
                 <article className="step" key={number}><span className="number">{number}</span><h3>{title}</h3><p>{text}</p></article>
               ))}
             </div>

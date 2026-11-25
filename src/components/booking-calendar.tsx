@@ -9,7 +9,10 @@ import { useBooking } from "@/lib/booking-store";
 import {
   businessDateKey,
   calculateBookingSchedule,
+  checkoutDateKey,
   checkInOptionsForSelection,
+  checkOutOptionsForSelection,
+  formatClock,
   isBookingDateSelectable,
   isDateOccupied,
   type StayWindow,
@@ -96,10 +99,18 @@ export function BookingCalendar() {
   const availableCheckInOptions = selectedDateKeys.length
     ? checkInOptionsForSelection(selectedDateKeys, now, stays)
     : [];
-  const checkInTime = availableCheckInOptions.includes(booking.checkInTime)
-    ? booking.checkInTime
-    : availableCheckInOptions[0] ?? booking.checkInTime;
-  const schedule = calculateBookingSchedule(selectedDateKeys, checkInTime, now, stays);
+  const checkInTime = availableCheckInOptions.includes(booking.checkInTime) ? booking.checkInTime : "";
+  const availableCheckOutOptions = checkInTime
+    ? checkOutOptionsForSelection(selectedDateKeys, checkInTime, now, stays)
+    : [];
+  const checkOutTime = availableCheckOutOptions.includes(booking.checkOutTime) ? booking.checkOutTime : "";
+  const schedule = checkInTime && checkOutTime
+    ? calculateBookingSchedule(selectedDateKeys, checkInTime, checkOutTime, now, stays)
+    : null;
+  const checkoutKey = checkoutDateKey(selectedDateKeys);
+  const checkoutLabel = checkoutKey
+    ? fromDateKey(checkoutKey).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+    : "";
 
   function selectDate(date: Date) {
     let next: Date[];
@@ -110,15 +121,14 @@ export function BookingCalendar() {
     const nextOptions = nextDateKeys.length
       ? checkInOptionsForSelection(nextDateKeys, now, stays)
       : [];
-    const nextCheckInTime = nextOptions.includes(checkInTime) ? checkInTime : nextOptions[0] ?? "08:00";
-    const nextSchedule = calculateBookingSchedule(nextDateKeys, nextCheckInTime, now, stays);
-    if (nextDateKeys.length && !nextSchedule) return;
+    if (nextDateKeys.length && !nextOptions.length) return;
     setSelected(next);
     updateBooking({
       dates: nextDateKeys,
-      checkInTime: nextCheckInTime,
-      checkInAt: nextSchedule?.checkInAt ?? "",
-      checkOutAt: nextSchedule?.checkOutAt ?? "",
+      checkInTime: "",
+      checkOutTime: "",
+      checkInAt: "",
+      checkOutAt: "",
     });
   }
 
@@ -127,9 +137,26 @@ export function BookingCalendar() {
   }
 
   function changeCheckInTime(value: string) {
-    const nextSchedule = calculateBookingSchedule(selectedDateKeys, value, now, stays);
+    const options = value ? checkOutOptionsForSelection(selectedDateKeys, value, now, stays) : [];
+    const nextCheckOut = options.includes(checkOutTime) ? checkOutTime : "";
+    const nextSchedule = value && nextCheckOut
+      ? calculateBookingSchedule(selectedDateKeys, value, nextCheckOut, now, stays)
+      : null;
     updateBooking({
       checkInTime: value,
+      checkOutTime: nextCheckOut,
+      checkInAt: nextSchedule?.checkInAt ?? "",
+      checkOutAt: nextSchedule?.checkOutAt ?? "",
+    });
+  }
+
+  function changeCheckOutTime(value: string) {
+    const nextSchedule = checkInTime && value
+      ? calculateBookingSchedule(selectedDateKeys, checkInTime, value, now, stays)
+      : null;
+    updateBooking({
+      checkInTime,
+      checkOutTime: value,
       checkInAt: nextSchedule?.checkInAt ?? "",
       checkOutAt: nextSchedule?.checkOutAt ?? "",
     });
@@ -140,6 +167,7 @@ export function BookingCalendar() {
     updateBooking({
       dates: selectedDateKeys,
       checkInTime,
+      checkOutTime,
       checkInAt: schedule.checkInAt,
       checkOutAt: schedule.checkOutAt,
     });
@@ -194,16 +222,23 @@ export function BookingCalendar() {
             <>
               <div className="field booking-time-field">
                 <label htmlFor="check-in-time">Check-in time</label>
-                <select className="input" id="check-in-time" value={checkInTime} onChange={(event) => changeCheckInTime(event.target.value)}>
-                  {availableCheckInOptions.map((time) => (
-                    <option value={time} key={time}>
-                      {new Date(`2000-01-01T${time}:00`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                    </option>
-                  ))}
+                <select className="input" id="check-in-time" value={checkInTime} required onChange={(event) => changeCheckInTime(event.target.value)}>
+                  <option value="">Select a time</option>
+                  {availableCheckInOptions.map((time) => <option value={time} key={time}>{formatClock(time)}</option>)}
+                </select>
+              </div>
+              <div className="field booking-time-field">
+                <label htmlFor="check-out-time">Check-out time{checkoutLabel ? ` · ${checkoutLabel}` : ""}</label>
+                <select className="input" id="check-out-time" value={checkOutTime} required disabled={!checkInTime} onChange={(event) => changeCheckOutTime(event.target.value)}>
+                  <option value="">Select a time</option>
+                  {availableCheckOutOptions.map((time) => <option value={time} key={time}>{formatClock(time)}</option>)}
                 </select>
               </div>
               {schedule && (
                 <BookingScheduleSummary checkInAt={schedule.checkInAt} checkOutAt={schedule.checkOutAt} />
+              )}
+              {availableCheckInOptions.length > 0 && !schedule && (
+                <p className="placeholder-note">Choose a check-in time and a check-out time.</p>
               )}
               {!availableCheckInOptions.length && (
                 <p className="placeholder-note">That check-in is too close to another pickup. Choose another day.</p>

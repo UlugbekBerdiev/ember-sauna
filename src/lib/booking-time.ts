@@ -5,6 +5,11 @@ export const CHECK_IN_OPTIONS = Array.from({ length: 15 }, (_, index) => {
   return `${String(hour).padStart(2, "0")}:00`;
 });
 
+export const CHECK_OUT_OPTIONS = Array.from({ length: 16 }, (_, index) => {
+  const hour = index + 7;
+  return `${String(hour).padStart(2, "0")}:00`;
+});
+
 export const BUSINESS_TIME_ZONE = "America/New_York";
 
 export const TURNOVER_MS = 3 * 60 * 60 * 1000;
@@ -19,38 +24,49 @@ export type StayWindow = {
   checkOutAt: Date;
 };
 
+export function checkoutDateKey(dateKeys: string[]) {
+  const sortedDates = [...new Set(dateKeys)].filter(isValidDateKey).sort();
+  if (!sortedDates.length) return null;
+  const lastDate = fromDateKey(sortedDates.at(-1)!);
+  if (sortedDates.length === 1) lastDate.setDate(lastDate.getDate() + 1);
+  return toDateKey(lastDate);
+}
+
 export function calculateBookingSchedule(
   dateKeys: string[],
-  checkInTime = "08:00",
+  checkInTime: string,
+  checkOutTime: string,
   now = new Date(),
   stays: StayWindow[] = [],
 ): BookingSchedule | null {
-  if (!dateKeys.length) return null;
+  if (!dateKeys.length || !checkInTime || !checkOutTime) return null;
 
   const sortedDates = [...new Set(dateKeys)].sort();
   if (
     sortedDates.some((dateKey) => !isBookingDateSelectable(dateKey, now, stays)) ||
-    !getAvailableCheckInOptions(sortedDates[0], now, stays).includes(checkInTime)
+    !getAvailableCheckInOptions(sortedDates[0], now, stays).includes(checkInTime) ||
+    !CHECK_OUT_OPTIONS.includes(checkOutTime)
   ) {
     return null;
   }
 
   const firstDate = fromDateKey(sortedDates[0]);
-  const lastDate = fromDateKey(sortedDates.at(-1)!);
-  const hour = Number(checkInTime.slice(0, 2));
-
+  const checkoutKey = checkoutDateKey(sortedDates);
+  if (!checkoutKey) return null;
+  const checkoutDate = fromDateKey(checkoutKey);
   const checkIn = new Date(
     firstDate.getFullYear(),
     firstDate.getMonth(),
     firstDate.getDate(),
-    hour,
+    Number(checkInTime.slice(0, 2)),
   );
   const checkOut = new Date(
-    lastDate.getFullYear(),
-    lastDate.getMonth(),
-    lastDate.getDate() + (sortedDates.length === 1 ? 1 : 0),
-    hour - 1,
+    checkoutDate.getFullYear(),
+    checkoutDate.getMonth(),
+    checkoutDate.getDate(),
+    Number(checkOutTime.slice(0, 2)),
   );
+  if (checkOut.getTime() <= checkIn.getTime()) return null;
 
   const schedule = {
     checkInAt: toLocalDateTime(checkIn),
@@ -78,6 +94,18 @@ export function getAvailableCheckInOptions(
   return open.filter((time) => time >= earliest);
 }
 
+export function checkOutOptionsForSelection(
+  dateKeys: string[],
+  checkInTime: string,
+  now = new Date(),
+  stays: StayWindow[] = [],
+) {
+  if (!checkInTime) return [];
+  return CHECK_OUT_OPTIONS.filter((time) =>
+    calculateBookingSchedule(dateKeys, checkInTime, time, now, stays),
+  );
+}
+
 export function checkInOptionsForSelection(
   dateKeys: string[],
   now = new Date(),
@@ -86,8 +114,16 @@ export function checkInOptionsForSelection(
   const first = [...dateKeys].sort()[0];
   if (!first) return [];
   return getAvailableCheckInOptions(first, now, stays).filter((time) =>
-    calculateBookingSchedule(dateKeys, time, now, stays),
+    checkOutOptionsForSelection(dateKeys, time, now, stays).length > 0,
   );
+}
+
+export function formatClock(time: string) {
+  const hour = Number(time.slice(0, 2));
+  const minute = time.slice(3, 5);
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minute} ${suffix}`;
 }
 
 export function isBookingDateSelectable(
