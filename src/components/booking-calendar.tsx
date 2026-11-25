@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PhotoPlaceholder } from "@/components/site-shell";
 import { BookingScheduleSummary } from "@/components/booking-schedule-summary";
-import { calculateRentalPrice, formatCurrency, fromDateKey, getDailyRate, toDateKey } from "@/lib/pricing";
+import { billableDateKeys, calculateRentalPrice, formatCurrency, fromDateKey, getDailyRate, toDateKey } from "@/lib/pricing";
 import { useBooking } from "@/lib/booking-store";
 import {
   businessDateKey,
@@ -93,7 +93,26 @@ export function BookingCalendar() {
   }, [availabilityReady, now, stays]);
 
   const cells = useMemo(() => buildMonth(view.getFullYear(), view.getMonth()), [view]);
-  const pricing = calculateRentalPrice(selected);
+  const dayFlags = useMemo(() => {
+    const flags = new Map<string, { occupied: boolean; canStart: boolean; canExtend: boolean }>();
+    const anchor = selected.length === 1 ? selected[0] : null;
+    const anchorKey = anchor ? toDateKey(anchor) : "";
+    for (const date of cells) {
+      if (!date) continue;
+      const dateKey = toDateKey(date);
+      const canExtend = Boolean(
+        anchor
+        && dateKey !== anchorKey
+        && checkInOptionsForSelection(datesBetween(anchor, date).map(toDateKey), now, stays).length > 0,
+      );
+      flags.set(dateKey, {
+        occupied: isDateOccupied(dateKey, stays),
+        canStart: checkInOptionsForSelection([dateKey], now, stays).length > 0,
+        canExtend,
+      });
+    }
+    return flags;
+  }, [cells, now, selected, stays]);
   const selectedKeys = new Set(selected.map(toDateKey));
   const selectedDateKeys = selected.map(toDateKey);
   const availableCheckInOptions = selectedDateKeys.length
@@ -107,6 +126,10 @@ export function BookingCalendar() {
   const schedule = checkInTime && checkOutTime
     ? calculateBookingSchedule(selectedDateKeys, checkInTime, checkOutTime, now, stays)
     : null;
+  const billedKeys = schedule
+    ? billableDateKeys(selectedDateKeys, schedule.checkInAt, schedule.checkOutAt)
+    : selectedDateKeys;
+  const pricing = calculateRentalPrice(billedKeys.map(fromDateKey));
   const checkoutKey = checkoutDateKey(selectedDateKeys);
   const checkoutLabel = checkoutKey
     ? fromDateKey(checkoutKey).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
@@ -188,11 +211,10 @@ export function BookingCalendar() {
           {cells.map((date, index) => {
             if (!date) return <div className="day-cell" role="gridcell" aria-disabled="true" key={`blank-${index}`} />;
             const dateKey = toDateKey(date);
-            const occupied = isDateOccupied(dateKey, stays);
-            const canStart = checkInOptionsForSelection([dateKey], now, stays).length > 0;
-            const canExtend = selected.length === 1
-              && !selectedKeys.has(dateKey)
-              && checkInOptionsForSelection(datesBetween(selected[0], date).map(toDateKey), now, stays).length > 0;
+            const flags = dayFlags.get(dateKey);
+            const occupied = flags?.occupied ?? false;
+            const canStart = flags?.canStart ?? false;
+            const canExtend = flags?.canExtend ?? false;
             const selectable = availabilityReady && !occupied && (selectedKeys.has(dateKey) || canStart || canExtend);
             const closed = availabilityReady && !occupied && dateKey >= businessDateKey(now) && !canStart && !selectedKeys.has(dateKey);
             const priceLabel = occupied ? "Booked" : closed ? "Closed" : formatCurrency(getDailyRate(date));
@@ -252,6 +274,9 @@ export function BookingCalendar() {
               <p>{formatCurrency(amount)}</p>
             </div>
           )) : <p>Select your rental date{selected.length === 0 ? "s" : ""} to see a total.</p>}
+          {billedKeys.length > selected.length && (
+            <p className="placeholder-note">This stay runs past {selected.length * 24} hours, so it is priced as a {billedKeys.length}-day rental.</p>
+          )}
           <hr className="gold-rule" />
           <div className="summary-line"><p>Subtotal</p><p>{formatCurrency(pricing.subtotal)}</p></div>
           {pricing.discount > 0 && <div className="summary-line"><p>{pricing.lineItems.length}-day {pricing.discountRate * 100}% off</p><p>−{formatCurrency(pricing.discount)}</p></div>}

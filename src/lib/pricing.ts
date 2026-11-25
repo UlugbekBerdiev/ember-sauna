@@ -66,3 +66,36 @@ export function formatCurrency(cents: number) {
     maximumFractionDigits: 0,
   }).format(cents / 100);
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function rentalDayCount(checkInAt: string, checkOutAt: string) {
+  const start = wallUtc(checkInAt);
+  const end = wallUtc(checkOutAt);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  const elapsed = end - start;
+  const fullDays = Math.floor(elapsed / DAY_MS);
+  return fullDays + (elapsed % DAY_MS > 0 ? 1 : 0);
+}
+
+export function billableDateKeys(selectedDateKeys: string[], checkInAt: string, checkOutAt: string) {
+  const selected = [...new Set(selectedDateKeys)]
+    .filter((key) => /^\d{4}-\d{2}-\d{2}$/.test(key) && toDateKey(fromDateKey(key)) === key)
+    .sort();
+  const count = Math.max(selected.length, rentalDayCount(checkInAt, checkOutAt));
+  if (!selected.length || count <= selected.length) return selected;
+  const cursor = fromDateKey(selected[selected.length - 1]);
+  const keys = [...selected];
+  while (keys.length < count) {
+    cursor.setDate(cursor.getDate() + 1);
+    keys.push(toDateKey(cursor));
+  }
+  return keys;
+}
+
+function wallUtc(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/.exec(value);
+  if (!match) return Number.NaN;
+  const [, year, month, day, hour, minute, second] = match;
+  return Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second ?? 0));
+}

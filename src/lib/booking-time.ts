@@ -14,6 +14,29 @@ export const BUSINESS_TIME_ZONE = "America/New_York";
 
 export const TURNOVER_MS = 3 * 60 * 60 * 1000;
 
+const businessClockFormat = new Intl.DateTimeFormat("en-US", {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+const bookingDateTimeFormat = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+const clockCache = new Map<number, { dateKey: string; seconds: number }>();
+const instantCache = new Map<string, number>();
+
 export type BookingSchedule = {
   checkInAt: string;
   checkOutAt: string;
@@ -100,9 +123,10 @@ export function checkOutOptionsForSelection(
   now = new Date(),
   stays: StayWindow[] = [],
 ) {
-  if (!checkInTime) return [];
+  const window = openSelection(dateKeys, now, stays);
+  if (!window || !window.opening.includes(checkInTime)) return [];
   return CHECK_OUT_OPTIONS.filter((time) =>
-    calculateBookingSchedule(dateKeys, checkInTime, time, now, stays),
+    checkoutFits(window.checkInKey, checkInTime, window.checkoutKey, time, window.blocks),
   );
 }
 
@@ -111,10 +135,12 @@ export function checkInOptionsForSelection(
   now = new Date(),
   stays: StayWindow[] = [],
 ) {
-  const first = [...dateKeys].sort()[0];
-  if (!first) return [];
-  return getAvailableCheckInOptions(first, now, stays).filter((time) =>
-    checkOutOptionsForSelection(dateKeys, time, now, stays).length > 0,
+  const window = openSelection(dateKeys, now, stays);
+  if (!window) return [];
+  return window.opening.filter((time) =>
+    CHECK_OUT_OPTIONS.some((checkout) =>
+      checkoutFits(window.checkInKey, time, window.checkoutKey, checkout, window.blocks),
+    ),
   );
 }
 
@@ -150,14 +176,7 @@ export function scheduleConflicts(checkInAt: string, checkOutAt: string, stays: 
 
 export function formatBookingDateTime(value: string) {
   if (!value) return "";
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
+  return bookingDateTimeFormat.format(new Date(value));
 }
 
 export function businessDateKey(now = new Date()) {
@@ -165,26 +184,73 @@ export function businessDateKey(now = new Date()) {
 }
 
 function getBusinessClock(now: Date) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: BUSINESS_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(now);
+  const cached = clockCache.get(now.getTime());
+  if (cached) return cached;
+  const parts = businessClockFormat.formatToParts(now);
   const value = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((part) => part.type === type)?.value ?? "";
 
-  return {
+  const clock = {
     dateKey: `${value("year")}-${value("month")}-${value("day")}`,
     seconds:
       Number(value("hour")) * 60 * 60 +
       Number(value("minute")) * 60 +
       Number(value("second")),
   };
+  if (clockCache.size > 4000) clockCache.clear();
+  clockCache.set(now.getTime(), clock);
+  return clock;
+}
+
+function normalizedDateKeys(dateKeys: string[]) {
+  const unique = [...new Set(dateKeys)].sort();
+  if (!unique.length || unique.some((dateKey) => !isValidDateKey(dateKey))) return null;
+  return unique;
+}
+
+function openSelection(dateKeys: string[], now: Date, stays: StayWindow[]) {
+  const sorted = normalizedDateKeys(dateKeys);
+  if (!sorted) return null;
+  const opening = getAvailableCheckInOptions(sorted[0], now, stays);
+  if (!opening.length) return null;
+  for (const dateKey of sorted.slice(1)) {
+    if (!isBookingDateSelectable(dateKey, now, stays)) return null;
+  }
+  const checkoutKey = checkoutDateKey(sorted);
+  if (!checkoutKey) return null;
+  return {
+    checkInKey: sorted[0],
+    checkoutKey,
+    opening,
+    blocks: stays.map((stay) => ({
+      start: stay.checkInAt.getTime(),
+      end: stay.checkOutAt.getTime() + TURNOVER_MS,
+    })),
+  };
+}
+
+function hourInstant(dateKey: string, time: string) {
+  const key = `${dateKey}T${time}`;
+  const cached = instantCache.get(key);
+  if (cached !== undefined) return cached;
+  const value = Date.parse(`${key}:00-05:00`);
+  if (instantCache.size > 4000) instantCache.clear();
+  instantCache.set(key, value);
+  return value;
+}
+
+function checkoutFits(
+  checkInKey: string,
+  checkInTime: string,
+  checkoutKey: string,
+  checkoutTime: string,
+  blocks: Array<{ start: number; end: number }>,
+) {
+  const start = hourInstant(checkInKey, checkInTime);
+  const checkout = hourInstant(checkoutKey, checkoutTime);
+  if (!(checkout > start)) return false;
+  const blockedUntil = checkout + TURNOVER_MS;
+  return blocks.every((block) => start >= block.end || block.start >= blockedUntil);
 }
 
 function isValidDateKey(dateKey: string) {

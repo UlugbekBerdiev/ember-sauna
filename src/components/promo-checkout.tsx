@@ -29,7 +29,12 @@ export function PromoCheckout({
     setMessage("");
     setReference("");
     try {
-      const next = await postQuote("/api/checkout/promo", { code, dates: booking.dates });
+      const next = await postQuote("/api/checkout/promo", {
+        code,
+        dates: booking.dates,
+        checkInTime: booking.checkInTime,
+        checkOutTime: booking.checkOutTime,
+      });
       setQuote(next);
       onQuote(next);
       setMessage(

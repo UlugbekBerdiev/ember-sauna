@@ -7,12 +7,15 @@ import { CardCheckout } from "@/components/card-checkout";
 import { BookingScheduleSummary } from "@/components/booking-schedule-summary";
 import { PromoCheckout, type PromoQuote } from "@/components/promo-checkout";
 import { useBooking } from "@/lib/booking-store";
-import { calculateRentalPrice, formatCurrency, fromDateKey } from "@/lib/pricing";
+import { billableDateKeys, calculateRentalPrice, formatCurrency, fromDateKey } from "@/lib/pricing";
 
 export default function PaymentPage() {
   const { booking } = useBooking();
-  const pricing = calculateRentalPrice(booking.dates.map(fromDateKey));
-  const datesKey = booking.dates.join(",");
+  const billedKeys = booking.checkInAt && booking.checkOutAt
+    ? billableDateKeys(booking.dates, booking.checkInAt, booking.checkOutAt)
+    : booking.dates;
+  const pricing = calculateRentalPrice(billedKeys.map(fromDateKey));
+  const datesKey = `${billedKeys.join(",")}|${booking.checkInAt}|${booking.checkOutAt}`;
   const [promo, setPromo] = useState<{ datesKey: string; quote: PromoQuote } | null>(null);
   const activePromo = promo?.datesKey === datesKey ? promo.quote : null;
   const total = activePromo ? activePromo.totalCents : pricing.total;
@@ -35,6 +38,7 @@ export default function PaymentPage() {
             <BookingScheduleSummary checkInAt={booking.checkInAt} checkOutAt={booking.checkOutAt} />
             {(booking.checkInAt || booking.checkOutAt) && <hr className="gold-rule" />}
             {pricing.lineItems.map(({ date, amount }) => <div className="summary-line" key={date.toISOString()}><p>{date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</p><p>{formatCurrency(amount)}</p></div>)}
+            {billedKeys.length > booking.dates.length && <p className="placeholder-note">This stay runs past {booking.dates.length * 24} hours, so it is priced as a {billedKeys.length}-day rental.</p>}
             {!pricing.lineItems.length && <p>No dates selected. <Link className="link-arrow" href="/book">Choose dates</Link>.</p>}
             <hr className="gold-rule" />
             <div className="summary-line"><p>Rental subtotal</p><p>{formatCurrency(pricing.subtotal)}</p></div>

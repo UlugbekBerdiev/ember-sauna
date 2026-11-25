@@ -6,7 +6,7 @@ import { ensureDatabase } from "@/lib/ensure-database";
 import { sendBookingAlert } from "@/lib/booking-alert";
 import { calculateBookingSchedule } from "@/lib/booking-time";
 import { listOpenStays, lockOpenStays } from "@/lib/open-stays";
-import { calculateRentalPrice, fromDateKey, toDateKey } from "@/lib/pricing";
+import { billableDateKeys, calculateRentalPrice, fromDateKey, toDateKey } from "@/lib/pricing";
 import { applyPercentDiscount, generatePromoCode, normalizePromoCode } from "@/lib/promo-code";
 
 export { applyPercentDiscount, generatePromoCode, normalizePromoCode };
@@ -79,10 +79,18 @@ export async function retirePromoCode(id: string) {
   });
 }
 
-export async function quotePromoCode(codeInput: string, dateKeys: string[]) {
+export async function quotePromoCode(
+  codeInput: string,
+  dateKeys: string[],
+  checkInTime: string,
+  checkOutTime: string,
+) {
   const code = normalizePromoCode(codeInput);
   if (!code) throw new PromoError("invalid", "That code is not valid.");
-  const pricing = priceDates(dateKeys);
+  const stays = await listOpenStays();
+  const schedule = calculateBookingSchedule(dateKeys, checkInTime, checkOutTime, new Date(), stays);
+  if (!schedule) throw new PromoError("dates", scheduleError({ checkInTime, checkOutTime }));
+  const pricing = priceSchedule(dateKeys, schedule);
 
   return withClient(async (client) => {
     const promo = await findAvailableCode(client, code);
@@ -116,7 +124,6 @@ export async function redeemFreePromo(input: RedeemInput) {
   const code = normalizePromoCode(input.code);
   if (!code) throw new PromoError("invalid", "That code is not valid.");
   const guest = readGuest(input);
-  const pricing = priceDates(guest.dates);
 
   return withClient(async (client) => {
     await client.query("begin");
@@ -124,6 +131,7 @@ export async function redeemFreePromo(input: RedeemInput) {
       const stays = await lockOpenStays(client);
       const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime, guest.checkOutTime, new Date(), stays);
       if (!schedule) throw new PromoError("dates", scheduleError(guest));
+      const pricing = priceSchedule(guest.dates, schedule);
       const promo = await client.query<{
         id: string;
         code: string;
@@ -184,6 +192,10 @@ export class PromoError extends Error {
   ) {
     super(message);
   }
+}
+
+function priceSchedule(dateKeys: string[], schedule: { checkInAt: string; checkOutAt: string }) {
+  return priceDates(billableDateKeys(dateKeys, schedule.checkInAt, schedule.checkOutAt));
 }
 
 function priceDates(dateKeys: string[]) {
@@ -251,7 +263,7 @@ export async function previewCheckout(input: RedeemInput) {
   const stays = await listOpenStays();
   const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime, guest.checkOutTime, new Date(), stays);
   if (!schedule) throw new PromoError("dates", scheduleError(guest));
-  const pricing = priceDates(guest.dates);
+  const pricing = priceSchedule(guest.dates, schedule);
   if (!code) {
     return {
       pricing,
@@ -260,7 +272,7 @@ export async function previewCheckout(input: RedeemInput) {
       promoDiscountCents: 0,
     };
   }
-  const promo = await quotePromoCode(code, guest.dates);
+  const promo = await quotePromoCode(code, guest.dates, guest.checkInTime, guest.checkOutTime);
   return {
     pricing,
     promo,
@@ -329,7 +341,7 @@ export async function finalizePaidCheckout(paymentIntentId: string, chargedCents
       const stays = await lockOpenStays(client);
       const schedule = calculateBookingSchedule(guest.dates, guest.checkInTime, guest.checkOutTime, new Date(), stays);
       if (!schedule) throw new PromoError("dates", scheduleError(guest));
-      const pricing = priceDates(guest.dates);
+      const pricing = priceSchedule(guest.dates, schedule);
       let promoCode: string | null = null;
       let promoId: string | null = null;
       let promoDiscountCents = 0;
@@ -455,7 +467,8 @@ async function insertBooking(
           input.guest.state,
           input.guest.zip,
           input.guest.notes || null,
-          input.guest.dates.map((date) => `${date}T12:00:00-05:00`),
+          billableDateKeys(input.guest.dates, input.schedule.checkInAt, input.schedule.checkOutAt)
+            .map((date) => `${date}T12:00:00-05:00`),
           new Date(`${input.schedule.checkInAt}-05:00`),
           new Date(`${input.schedule.checkOutAt}-05:00`),
           input.pricing.lineItems.length,
