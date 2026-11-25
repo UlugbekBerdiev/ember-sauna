@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateRentalPrice, getDailyRate, getDiscountRate, toDateKey } from "./pricing";
+import { billableDateKeys, calculateRentalPrice, fromDateKey, getDailyRate, getDiscountRate, rentalDayCount, toDateKey } from "./pricing";
 
 describe("daily pricing", () => {
   it("uses weekday, Friday, and weekend rates", () => {
@@ -35,5 +35,34 @@ describe("daily pricing", () => {
 
   it("uses local calendar fields for stable date keys", () => {
     expect(toDateKey(new Date(2026, 0, 5))).toBe("2026-01-05");
+  });
+
+  it("counts a stay that runs past 24 hours as another rental day", () => {
+    expect(rentalDayCount("2026-11-27T08:00:00", "2026-11-28T07:00:00")).toBe(1);
+    expect(rentalDayCount("2026-11-27T08:00:00", "2026-11-28T08:00:00")).toBe(1);
+    expect(rentalDayCount("2026-11-27T08:00:00", "2026-11-28T09:00:00")).toBe(2);
+    expect(rentalDayCount("2026-11-27T08:00:00", "2026-11-29T08:00:00")).toBe(2);
+    expect(rentalDayCount("2026-11-27T08:00:00", "2026-11-29T08:00:01")).toBe(3);
+  });
+
+  it("prices the Friday morning to Saturday evening stay as two days", () => {
+    const dates = billableDateKeys(
+      ["2026-11-27"],
+      "2026-11-27T08:00:00",
+      "2026-11-28T18:00:00",
+    );
+    expect(dates).toEqual(["2026-11-27", "2026-11-28"]);
+    const quote = calculateRentalPrice(dates.map(fromDateKey));
+    expect(quote.subtotal).toBe(85000);
+    expect(quote.discountRate).toBe(0.2);
+    expect(quote.total).toBe(68000);
+  });
+
+  it("keeps a short multi-day selection on the selected days", () => {
+    expect(billableDateKeys(
+      ["2026-11-28", "2026-11-27"],
+      "2026-11-27T17:00:00",
+      "2026-11-28T11:00:00",
+    )).toEqual(["2026-11-27", "2026-11-28"]);
   });
 });

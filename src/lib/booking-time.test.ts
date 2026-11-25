@@ -111,6 +111,43 @@ describe("booking schedule", () => {
     expect(checkInOptionsForSelection(["2026-11-19", "2026-11-20"], morning, stays).length).toBeGreaterThan(0);
   });
 
+  it("offers the same checkout hours as a full schedule check", () => {
+    const morning = new Date("2026-11-18T15:00:00Z");
+    const stays = [
+      {
+        checkInAt: new Date("2026-11-21T08:00:00-05:00"),
+        checkOutAt: new Date("2026-11-22T07:00:00-05:00"),
+      },
+      {
+        checkInAt: new Date("2026-11-23T10:30:00-05:00"),
+        checkOutAt: new Date("2026-11-24T09:00:00-05:00"),
+      },
+    ];
+    const selections = [
+      ["2026-11-19"],
+      ["2026-11-20"],
+      ["2026-11-22"],
+      ["2026-11-19", "2026-11-20"],
+      ["2026-11-22", "2026-11-23"],
+      ["2026-11-24"],
+      ["2026-11-25", "2026-11-27"],
+    ];
+    for (const dates of selections) {
+      for (const checkIn of CHECK_IN_OPTIONS) {
+        const fast = checkOutOptionsForSelection(dates, checkIn, morning, stays);
+        const brute = CHECK_OUT_OPTIONS.filter((time) =>
+          calculateBookingSchedule(dates, checkIn, time, morning, stays),
+        );
+        expect(fast).toEqual(brute);
+      }
+      const listed = checkInOptionsForSelection(dates, morning, stays);
+      const bruteIns = CHECK_IN_OPTIONS.filter((time) =>
+        CHECK_OUT_OPTIONS.some((checkout) => calculateBookingSchedule(dates, time, checkout, morning, stays)),
+      );
+      expect(listed).toEqual(bruteIns);
+    }
+  });
+
   it("validates dates and times in the schedule helper", () => {
     const eightThirtyAm = new Date("2026-07-15T12:30:00Z");
     expect(calculateBookingSchedule([], "08:00", "07:00", eightThirtyAm)).toBeNull();

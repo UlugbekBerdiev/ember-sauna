@@ -12,7 +12,12 @@ export async function POST(request: Request) {
   const body = await readBody(request);
   if (!body) return NextResponse.json({ error: "invalid" }, { status: 400 });
   try {
-    const quote = await quotePromoCode(String(body.code ?? ""), readDates(body.dates));
+    const quote = await quotePromoCode(
+      String(body.code ?? ""),
+      readDates(body.dates),
+      String(body.checkInTime ?? ""),
+      String(body.checkOutTime ?? ""),
+    );
     return NextResponse.json(quote);
   } catch (error) {
     return promoResponse(error);
